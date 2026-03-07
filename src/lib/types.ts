@@ -1,4 +1,4 @@
-export interface Profile {
+export type Profile = {
   id: string;
   email: string;
   full_name: string | null;
@@ -6,9 +6,9 @@ export interface Profile {
   brand_voice: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
-}
+};
 
-export interface CreditTransaction {
+export type CreditTransaction = {
   id: string;
   user_id: string;
   amount: number;
@@ -17,9 +17,9 @@ export interface CreditTransaction {
   reference_id: string | null;
   balance_after: number;
   created_at: string;
-}
+};
 
-export interface CreditPack {
+export type CreditPack = {
   id: string;
   name: string;
   credits: number;
@@ -29,9 +29,9 @@ export interface CreditPack {
   active: boolean;
   sort_order: number;
   created_at: string;
-}
+};
 
-export interface Generation {
+export type Generation = {
   id: string;
   user_id: string;
   type: GenerationType;
@@ -53,18 +53,26 @@ export interface Generation {
   started_at: string | null;
   completed_at: string | null;
   created_at: string;
-}
+};
 
-export interface AffiliateLink {
+export type AffiliateLink = {
   id: string;
   user_id: string;
   label: string;
   url: string;
   is_active: boolean;
   created_at: string;
-}
+};
 
-export interface GenerationConfig {
+export type BrandVoice = {
+  sampleContent: string;
+  tone: 'formal' | 'casual' | 'mixed';
+  audience: 'beginners' | 'experts' | 'mixed';
+  traits: string[];
+  generatedPrompt?: string;
+};
+
+export type GenerationConfig = {
   type: GenerationType;
   duration?: number;
   tone?: ContentTone;
@@ -72,7 +80,7 @@ export interface GenerationConfig {
   imageTier?: ImageTier;
   motionTier?: MotionTier;
   sceneCount?: number;
-}
+};
 
 export type VoiceTier = 'standard' | 'premium' | 'ultra';
 export type ImageTier = 'standard' | 'premium' | 'ultra';
