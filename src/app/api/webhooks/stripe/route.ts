@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe';
+import { stripe as getStripe } from '@/lib/stripe';
 import { addCredits, transactionExists } from '@/lib/credits-service';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { CreditPack } from '@/lib/types';
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(
+    event = getStripe().webhooks.constructEvent(
       body,
       signature,
       process.env.STRIPE_WEBHOOK_SECRET!
