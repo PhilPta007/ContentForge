@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { generatePayFastSignature } from '@/lib/payfast';
-import { addCredits } from '@/lib/credits-service';
+import { addCredits, transactionExists } from '@/lib/credits-service';
+import { createAdminClient } from '@/lib/supabase/admin';
 import type { CreditPack } from '@/lib/types';
-
-function createServiceClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,7 +38,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createServiceClient();
+    // Idempotency check — prevent duplicate credit grants on webhook retry
+    const referenceId = params.m_payment_id;
+    if (referenceId && await transactionExists(referenceId)) {
+      return NextResponse.json({ status: 'already_processed' }, { status: 200 });
+    }
+
+    const supabase = createAdminClient();
     const { data: pack, error: packError } = await supabase
       .from('credit_packs')
       .select('*')
@@ -64,7 +63,7 @@ export async function POST(request: NextRequest) {
       pack.credits,
       'purchase',
       `Purchased ${pack.name} pack (${pack.credits} credits) via PayFast`,
-      params.m_payment_id
+      referenceId
     );
 
     return NextResponse.json({ status: 'ok' }, { status: 200 });

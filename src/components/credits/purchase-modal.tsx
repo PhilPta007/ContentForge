@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -51,7 +52,9 @@ export function PurchaseModal({ pack, open, onOpenChange }: PurchaseModalProps) 
       if (data.url) {
         window.location.href = data.url;
       }
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Purchase failed. Please try again.';
+      toast.error(message);
       setIsLoading(false);
     }
   }

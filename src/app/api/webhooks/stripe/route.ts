@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { stripe } from '@/lib/stripe';
-import { addCredits } from '@/lib/credits-service';
+import { addCredits, transactionExists } from '@/lib/credits-service';
+import { createAdminClient } from '@/lib/supabase/admin';
 import type { CreditPack } from '@/lib/types';
 import type Stripe from 'stripe';
-
-function createServiceClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -51,8 +44,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Idempotency check — prevent duplicate credit grants on webhook retry
+    if (await transactionExists(session.id)) {
+      return NextResponse.json({ status: 'already_processed' }, { status: 200 });
+    }
+
     try {
-      const supabase = createServiceClient();
+      const supabase = createAdminClient();
       const { data: pack, error: packError } = await supabase
         .from('credit_packs')
         .select('*')

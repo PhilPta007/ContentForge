@@ -51,14 +51,12 @@ export function AppHeader() {
         </div>
 
         <DropdownMenu>
-          <DropdownMenuTrigger>
-            <Button variant="ghost" size="icon" className="rounded-lg">
+          <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors outline-none">
               <Avatar className="h-7 w-7">
                 <AvatarFallback className="bg-indigo-600 text-xs text-white">
                   {initials}
                 </AvatarFallback>
               </Avatar>
-            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40 bg-[#111111] border-[#1e1e1e]">
             <DropdownMenuItem

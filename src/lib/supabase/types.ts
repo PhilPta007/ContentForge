@@ -50,6 +50,32 @@ export type Database = {
         Args: Record<string, never>;
         Returns: undefined;
       };
+      add_credits: {
+        Args: {
+          p_user_id: string;
+          p_amount: number;
+          p_type: string;
+          p_description: string;
+          p_reference_id: string | null;
+        };
+        Returns: number;
+      };
+      deduct_credits: {
+        Args: {
+          p_user_id: string;
+          p_amount: number;
+          p_type: string;
+          p_description: string;
+          p_reference_id: string | null;
+        };
+        Returns: number;
+      };
+      transaction_exists: {
+        Args: {
+          p_reference_id: string;
+        };
+        Returns: boolean;
+      };
     };
     Enums: {
       [_ in never]: never;

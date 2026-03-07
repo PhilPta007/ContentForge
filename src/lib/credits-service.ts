@@ -1,12 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
+import { createAdminClient } from './supabase/admin';
 import type { CreditTransaction } from './types';
-
-function createServiceClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
 
 export async function addCredits(
   userId: string,
@@ -15,45 +8,21 @@ export async function addCredits(
   description: string,
   referenceId?: string
 ): Promise<{ balance: number }> {
-  const supabase = createServiceClient();
+  const supabase = createAdminClient();
 
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('credits')
-    .eq('id', userId)
-    .single<{ credits: number }>();
+  const { data, error } = await supabase.rpc('add_credits', {
+    p_user_id: userId,
+    p_amount: amount,
+    p_type: type,
+    p_description: description,
+    p_reference_id: referenceId ?? null,
+  });
 
-  if (profileError || !profile) {
-    throw new Error(`Failed to fetch user profile: ${profileError?.message}`);
+  if (error) {
+    throw new Error(`Failed to add credits: ${error.message}`);
   }
 
-  const newBalance = profile.credits + amount;
-
-  const { error: txError } = await supabase
-    .from('credit_transactions')
-    .insert({
-      user_id: userId,
-      amount,
-      type,
-      description,
-      reference_id: referenceId ?? null,
-      balance_after: newBalance,
-    });
-
-  if (txError) {
-    throw new Error(`Failed to insert credit transaction: ${txError.message}`);
-  }
-
-  const { error: updateError } = await supabase
-    .from('profiles')
-    .update({ credits: newBalance })
-    .eq('id', userId);
-
-  if (updateError) {
-    throw new Error(`Failed to update profile credits: ${updateError.message}`);
-  }
-
-  return { balance: newBalance };
+  return { balance: data as number };
 }
 
 export async function deductCredits(
@@ -63,53 +32,42 @@ export async function deductCredits(
   description: string,
   referenceId?: string
 ): Promise<{ balance: number }> {
-  const supabase = createServiceClient();
+  const supabase = createAdminClient();
 
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('credits')
-    .eq('id', userId)
-    .single<{ credits: number }>();
+  const { data, error } = await supabase.rpc('deduct_credits', {
+    p_user_id: userId,
+    p_amount: amount,
+    p_type: type,
+    p_description: description,
+    p_reference_id: referenceId ?? null,
+  });
 
-  if (profileError || !profile) {
-    throw new Error(`Failed to fetch user profile: ${profileError?.message}`);
+  if (error) {
+    if (error.message.includes('Insufficient credits')) {
+      throw new Error('Insufficient credits');
+    }
+    throw new Error(`Failed to deduct credits: ${error.message}`);
   }
 
-  if (profile.credits < amount) {
-    throw new Error('Insufficient credits');
+  return { balance: data as number };
+}
+
+export async function transactionExists(referenceId: string): Promise<boolean> {
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase.rpc('transaction_exists', {
+    p_reference_id: referenceId,
+  });
+
+  if (error) {
+    throw new Error(`Failed to check transaction: ${error.message}`);
   }
 
-  const newBalance = profile.credits - amount;
-
-  const { error: txError } = await supabase
-    .from('credit_transactions')
-    .insert({
-      user_id: userId,
-      amount: -amount,
-      type,
-      description,
-      reference_id: referenceId ?? null,
-      balance_after: newBalance,
-    });
-
-  if (txError) {
-    throw new Error(`Failed to insert credit transaction: ${txError.message}`);
-  }
-
-  const { error: updateError } = await supabase
-    .from('profiles')
-    .update({ credits: newBalance })
-    .eq('id', userId);
-
-  if (updateError) {
-    throw new Error(`Failed to update profile credits: ${updateError.message}`);
-  }
-
-  return { balance: newBalance };
+  return data as boolean;
 }
 
 export async function getBalance(userId: string): Promise<number> {
-  const supabase = createServiceClient();
+  const supabase = createAdminClient();
 
   const { data, error } = await supabase
     .from('profiles')
@@ -129,7 +87,7 @@ export async function getTransactions(
   limit = 20,
   offset = 0
 ): Promise<CreditTransaction[]> {
-  const supabase = createServiceClient();
+  const supabase = createAdminClient();
 
   const { data, error } = await supabase
     .from('credit_transactions')

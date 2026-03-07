@@ -50,7 +50,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const userName = user.user_metadata?.full_name ?? user.email?.split('@')[0] ?? 'User';
+    if (!user.email) {
+      return NextResponse.json(
+        { error: 'Email is required for purchases' },
+        { status: 400 }
+      );
+    }
+
+    const userName = user.user_metadata?.full_name ?? user.email.split('@')[0] ?? 'User';
 
     if (paymentMethod === 'payfast') {
       const url = createPayFastUrl(
@@ -58,7 +65,7 @@ export async function POST(request: NextRequest) {
         pack.id,
         pack.name,
         pack.price_zar / 100,
-        user.email!,
+        user.email,
         userName
       );
       return NextResponse.json({ url });
@@ -70,7 +77,7 @@ export async function POST(request: NextRequest) {
       pack.name,
       pack.credits,
       pack.price_usd,
-      user.email!
+      user.email
     );
 
     return NextResponse.json({ url });

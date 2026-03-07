@@ -1,40 +1,70 @@
 # Build State
 
 > Last updated: 2026-03-07
-> Auto-saved after: /build Phase 1
+> Auto-saved after: Full environment setup + n8n workflow creation
 
 ## Current Session
-- **Feature**: Phase 1 — Foundation
-- **Phase**: building (Phase 1 complete, Phase 2 next)
-- **Status**: complete
+- **Feature**: ContentForge — Full Application Build
+- **Phase**: complete (all 7 phases built + audit fixes + environment setup + n8n workflows)
+- **Status**: complete — ready for testing
 
-## Completed This Session
-- Project scaffold (Next.js 14, TailwindCSS v4, shadcn/ui, all deps)
-- GitHub repo created: github.com/PhilPta007/ContentForge
-- Core libs: credits.ts, tones.ts, providers.ts, types.ts, constants.ts, utils.ts
-- Supabase client (browser + server), middleware, session management
-- Auth: login, signup, verify, forgot-password, OAuth callback
-- Dashboard layout: sidebar, header, mobile nav, credit balance
-- Zustand stores: user + credit state management
-- Shared components: loading, empty-state, error-boundary
-- Store provider with auth state listener
-- Stub pages: create, library, credits, settings, jobs
-- Marketing layout + landing page stub
-- SQL migration with full schema, RLS, seed data, profile auto-create trigger
-- Code review: 3 critical + 6 major fixes applied
+## Completed
+### Phases 1-7 — Full Build
+- 110+ source files, 0 TypeScript errors
+- See previous build-state for phase-by-phase details
 
-## Pending (Phase 2)
-- Credit balance component (buy credits page)
-- PayFast integration + webhook
-- Stripe integration + webhook
-- Transaction history page
-- Credit deduction logic
+### Audit Fixes Applied
+- Atomic credit operations via PostgreSQL RPCs (add_credits, deduct_credits)
+- PayFast/Stripe webhook idempotency (transaction_exists)
+- Password schema, Supabase client fixes, user_id filters, error toasts
+- New migration: 002_atomic_credits.sql
 
-## Files Modified
-- 40+ files across src/app, src/components, src/lib, src/stores, supabase/
+### UI Bug Fixes
+- Credit balance not showing (setBalance missing isLoading: false)
+- Dropdown font color (explicit bg-neutral-900 text-white)
+- Nested button hydration error (removed Button from DropdownMenuTrigger)
 
-## Last Action
-Applied code review fixes (open redirect, profile INSERT policy, Toaster, password strength, router.refresh)
+### Environment Setup (This Session)
+- `.env.local` fully configured with all API keys:
+  - Supabase (URL, anon key, service role key)
+  - PayFast sandbox (merchant ID, key, passphrase)
+  - n8n webhook URL + secret
+  - Google Gemini API key
+  - ElevenLabs API key
+  - Kokoro TTS (URL, API key, voice)
+  - Fal AI key
+  - OpenRouter key
+  - Kie AI key
+  - Resend email key
+  - Cloudflare account + token
+- Supabase Storage buckets verified: audio, images, video, thumbnails
+- Profile created for existing user with 500 test credits
+
+### n8n Workflow Setup (This Session)
+- **Deleted**: SnoozCast Generate v13 (snoozcast-v13-nanobanana)
+- **Created**: ContentForge Generate (JRKIyos4VFfmWw1D) — active
+  - Webhook: POST /webhook/contentforge-generate
+  - 8 nodes: Webhook → Switch Router → 4 type handlers + Error Handler
+  - **MP3**: Gemini script → TTS (Kokoro standard / ElevenLabs premium+ultra) → Supabase upload → callback
+  - **Description**: Gemini generation with brand voice + affiliate links → text upload → callback
+  - **Thumbnail**: Image gen (Gemini standard / Fal AI premium+ultra) → Supabase upload → callback
+  - **Video**: Script → TTS → Image generation → Ken Burns ffmpeg assembly → upload → callback
+  - Error handler reports failures back to app for auto-refund
+
+## Known Limitations
+- No Stripe keys configured (not in Global_API.md)
+- Local dev callback URL (localhost:3000) not reachable from VPS — generations will process but callback won't update status locally. Works when deployed to production URL.
+- Kokoro TTS outputs WAV → converted to MP3 via ffmpeg on VPS
+
+## Pending
+- Deploy to production (Vercel/Netlify)
+- Configure production `NEXT_PUBLIC_APP_URL` for callbacks
+- Add Stripe keys when available
+- End-to-end testing with production URL
 
 ## Resume Instructions
-Phase 1 is complete. Next session: run `my.build "Phase 2: Credits"` to implement credit purchasing (PayFast + Stripe), transaction history, and credit deduction logic. User will supply Supabase credentials before Phase 2.
+All phases built, audited, and environment configured. Next steps:
+1. Deploy to Vercel/Netlify
+2. Set production URL in environment
+3. Test all 4 generation types end-to-end
+4. Configure Stripe if needed

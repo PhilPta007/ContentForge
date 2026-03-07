@@ -42,10 +42,10 @@ export function TopicInput({
             id="duration"
             value={duration ?? 10}
             onChange={(e) => onDurationChange?.(Number(e.target.value))}
-            className="h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+            className="h-10 w-full rounded-lg border border-neutral-800 bg-neutral-900 px-3 text-sm text-white outline-none focus-visible:border-indigo-600/50 focus-visible:ring-1 focus-visible:ring-indigo-600/50"
           >
             {DURATION_OPTIONS.map((d) => (
-              <option key={d} value={d}>
+              <option key={d} value={d} className="bg-neutral-900 text-white">
                 {d} minutes
               </option>
             ))}

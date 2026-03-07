@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { calculateCredits } from '@/lib/credits';
+import { deductCredits } from '@/lib/credits-service';
 import { triggerGeneration } from '@/lib/n8n/trigger';
 import type { GenerationConfig } from '@/lib/types';
 
@@ -42,34 +43,7 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient();
 
-    const { data: profile, error: profileError } = await admin
-      .from('profiles')
-      .select('credits')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError || !profile) {
-      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
-    }
-
-    if (profile.credits < creditsNeeded) {
-      return NextResponse.json(
-        { error: 'Insufficient credits', required: creditsNeeded, available: profile.credits },
-        { status: 402 }
-      );
-    }
-
-    const newBalance = profile.credits - creditsNeeded;
-
-    const { error: deductError } = await admin
-      .from('profiles')
-      .update({ credits: newBalance })
-      .eq('id', user.id);
-
-    if (deductError) {
-      return NextResponse.json({ error: 'Failed to deduct credits' }, { status: 500 });
-    }
-
+    // Create generation record first
     const { data: generation, error: genError } = await admin
       .from('generations')
       .insert({
@@ -86,21 +60,25 @@ export async function POST(request: Request) {
       .single();
 
     if (genError || !generation) {
-      await admin
-        .from('profiles')
-        .update({ credits: profile.credits })
-        .eq('id', user.id);
       return NextResponse.json({ error: 'Failed to create generation' }, { status: 500 });
     }
 
-    await admin.from('credit_transactions').insert({
-      user_id: user.id,
-      amount: -creditsNeeded,
-      type: 'generation',
-      description: `MP3: ${topic}`,
-      reference_id: generation.id,
-      balance_after: newBalance,
-    });
+    // Atomic credit deduction (checks balance + deducts in one transaction)
+    try {
+      await deductCredits(
+        user.id,
+        creditsNeeded,
+        'generation',
+        `MP3: ${topic}`,
+        generation.id
+      );
+    } catch (error) {
+      // Rollback generation record
+      await admin.from('generations').delete().eq('id', generation.id);
+      const message = error instanceof Error ? error.message : 'Failed to deduct credits';
+      const status = message.includes('Insufficient') ? 402 : 500;
+      return NextResponse.json({ error: message }, { status });
+    }
 
     const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/n8n`;
 

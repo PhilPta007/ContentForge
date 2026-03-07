@@ -1,27 +1,33 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ListTodo } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { useUserStore } from '@/stores/user-store';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/shared/empty-state';
 import { JobCard } from '@/components/jobs/job-card';
 import type { Generation } from '@/lib/types';
 
 export function JobList() {
-  const supabase = createClient();
   const searchParams = useSearchParams();
   const highlightId = searchParams.get('highlight');
+  const { user } = useUserStore();
 
   const [jobs, setJobs] = useState<Generation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const supabase = useMemo(() => createClient(), []);
+
   useEffect(() => {
+    if (!user) return;
+
     async function fetchJobs() {
       const { data } = await supabase
         .from('generations')
         .select('*')
+        .eq('user_id', user!.id)
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -29,9 +35,11 @@ export function JobList() {
       setIsLoading(false);
     }
     fetchJobs();
-  }, [supabase]);
+  }, [supabase, user]);
 
   useEffect(() => {
+    if (!user) return;
+
     const channel = supabase
       .channel('generations-realtime')
       .on(
@@ -40,6 +48,7 @@ export function JobList() {
           event: '*',
           schema: 'public',
           table: 'generations',
+          filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
@@ -60,7 +69,7 @@ export function JobList() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase]);
+  }, [supabase, user]);
 
   if (isLoading) {
     return (

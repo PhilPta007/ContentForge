@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { FIXED_CREDITS } from '@/lib/credits';
+import { deductCredits } from '@/lib/credits-service';
 import { triggerGeneration } from '@/lib/n8n/trigger';
 
 const bodySchema = z.object({
@@ -36,22 +37,12 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient();
 
-    const { data: profile, error: profileError } = await admin
+    // Fetch brand voice and affiliate links if needed
+    const { data: profile } = await admin
       .from('profiles')
-      .select('credits, brand_voice')
+      .select('brand_voice')
       .eq('id', user.id)
       .single();
-
-    if (profileError || !profile) {
-      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
-    }
-
-    if (profile.credits < creditsNeeded) {
-      return NextResponse.json(
-        { error: 'Insufficient credits', required: creditsNeeded, available: profile.credits },
-        { status: 402 }
-      );
-    }
 
     let affiliateLinks: { label: string; url: string }[] = [];
     if (affiliateLinkIds.length > 0) {
@@ -61,17 +52,6 @@ export async function POST(request: Request) {
         .in('id', affiliateLinkIds)
         .eq('user_id', user.id);
       affiliateLinks = links ?? [];
-    }
-
-    const newBalance = profile.credits - creditsNeeded;
-
-    const { error: deductError } = await admin
-      .from('profiles')
-      .update({ credits: newBalance })
-      .eq('id', user.id);
-
-    if (deductError) {
-      return NextResponse.json({ error: 'Failed to deduct credits' }, { status: 500 });
     }
 
     const { data: generation, error: genError } = await admin
@@ -89,21 +69,23 @@ export async function POST(request: Request) {
       .single();
 
     if (genError || !generation) {
-      await admin
-        .from('profiles')
-        .update({ credits: profile.credits })
-        .eq('id', user.id);
       return NextResponse.json({ error: 'Failed to create generation' }, { status: 500 });
     }
 
-    await admin.from('credit_transactions').insert({
-      user_id: user.id,
-      amount: -creditsNeeded,
-      type: 'generation',
-      description: `Description: ${topic}`,
-      reference_id: generation.id,
-      balance_after: newBalance,
-    });
+    try {
+      await deductCredits(
+        user.id,
+        creditsNeeded,
+        'generation',
+        `Description: ${topic}`,
+        generation.id
+      );
+    } catch (error) {
+      await admin.from('generations').delete().eq('id', generation.id);
+      const message = error instanceof Error ? error.message : 'Failed to deduct credits';
+      const status = message.includes('Insufficient') ? 402 : 500;
+      return NextResponse.json({ error: message }, { status });
+    }
 
     const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/n8n`;
 
@@ -113,7 +95,7 @@ export async function POST(request: Request) {
       type: 'description',
       topic,
       youtubeUrl,
-      brandVoice: useBrandVoice ? (profile.brand_voice as Record<string, unknown>) ?? undefined : undefined,
+      brandVoice: useBrandVoice ? (profile?.brand_voice as Record<string, unknown>) ?? undefined : undefined,
       affiliateLinks: affiliateLinks.length > 0 ? affiliateLinks : undefined,
       callbackUrl,
     }).catch(async () => {

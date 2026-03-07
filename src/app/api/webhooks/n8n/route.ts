@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { addCredits } from '@/lib/credits-service';
 
 interface CallbackPayload {
   generationId: string;
@@ -48,30 +49,15 @@ export async function POST(request: Request) {
       return new NextResponse('Database error', { status: 500 });
     }
 
+    // Atomic refund on failure
     if (payload.status === 'failed') {
-      const { data: profile } = await admin
-        .from('profiles')
-        .select('credits')
-        .eq('id', generation.user_id)
-        .single();
-
-      if (profile) {
-        const refundedBalance = profile.credits + generation.credits_used;
-
-        await admin
-          .from('profiles')
-          .update({ credits: refundedBalance })
-          .eq('id', generation.user_id);
-
-        await admin.from('credit_transactions').insert({
-          user_id: generation.user_id,
-          amount: generation.credits_used,
-          type: 'refund',
-          description: `Refund: generation failed`,
-          reference_id: generation.id,
-          balance_after: refundedBalance,
-        });
-      }
+      await addCredits(
+        generation.user_id,
+        generation.credits_used,
+        'refund',
+        'Refund: generation failed',
+        generation.id
+      );
     }
 
     return new NextResponse('OK');

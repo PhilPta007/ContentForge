@@ -13,7 +13,7 @@ interface CreditState {
 export const useCreditStore = create<CreditState>((set) => ({
   balance: 0,
   isLoading: true,
-  setBalance: (balance) => set({ balance }),
+  setBalance: (balance) => set({ balance, isLoading: false }),
   deductCredits: (amount) =>
     set((state) => ({ balance: Math.max(0, state.balance - amount) })),
   addCredits: (amount) =>
