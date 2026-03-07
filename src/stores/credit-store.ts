@@ -15,17 +15,22 @@ export const useCreditStore = create<CreditState>((set) => ({
   isLoading: true,
   setBalance: (balance) => set({ balance }),
   deductCredits: (amount) =>
-    set((state) => ({ balance: state.balance - amount })),
+    set((state) => ({ balance: Math.max(0, state.balance - amount) })),
   addCredits: (amount) =>
     set((state) => ({ balance: state.balance + amount })),
   fetchBalance: async (userId: string) => {
     set({ isLoading: true });
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('credits')
       .eq('id', userId)
       .single<{ credits: number }>();
+    if (error) {
+      console.error('Failed to fetch credit balance:', error);
+      set({ isLoading: false });
+      return;
+    }
     set({ balance: data?.credits ?? 0, isLoading: false });
   },
 }));

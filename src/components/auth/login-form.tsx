@@ -50,6 +50,7 @@ export function LoginForm() {
         return;
       }
 
+      router.refresh();
       router.push('/app');
     } catch {
       toast.error('An unexpected error occurred');

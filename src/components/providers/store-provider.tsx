@@ -4,26 +4,33 @@ import { useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useUserStore } from '@/stores/user-store';
 import { useCreditStore } from '@/stores/credit-store';
+import type { Profile } from '@/lib/types';
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const { setUser, setProfile, setLoading, clear } = useUserStore();
-  const { fetchBalance } = useCreditStore();
+  const { setBalance } = useCreditStore();
 
   useEffect(() => {
     const supabase = createClient();
 
+    const fetchProfile = (userId: string) => {
+      supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single<Profile>()
+        .then(({ data }) => {
+          if (data) {
+            setProfile(data);
+            useCreditStore.getState().setBalance(data.credits);
+          }
+        });
+    };
+
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (user) {
         setUser(user);
-        fetchBalance(user.id);
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single()
-          .then(({ data }) => {
-            if (data) setProfile(data);
-          });
+        fetchProfile(user.id);
       }
       setLoading(false);
     });
@@ -33,22 +40,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser(session.user);
-        fetchBalance(session.user.id);
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-          .then(({ data }) => {
-            if (data) setProfile(data);
-          });
+        fetchProfile(session.user.id);
       } else {
         clear();
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [setUser, setProfile, setLoading, clear, fetchBalance]);
+  }, [setUser, setProfile, setLoading, clear, setBalance]);
 
   return <>{children}</>;
 }
