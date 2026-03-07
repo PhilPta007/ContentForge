@@ -87,7 +87,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: message }, { status });
     }
 
-    const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/n8n`;
+    const callbackUrl = process.env.N8N_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/n8n`;
 
     await triggerGeneration({
       generationId: generation.id,

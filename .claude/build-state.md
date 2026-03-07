@@ -1,70 +1,61 @@
 # Build State
 
 > Last updated: 2026-03-07
-> Auto-saved after: Full environment setup + n8n workflow creation
+> Auto-saved after: my.sync — n8n workflow fixes + TTS routing
 
 ## Current Session
-- **Feature**: ContentForge — Full Application Build
-- **Phase**: complete (all 7 phases built + audit fixes + environment setup + n8n workflows)
-- **Status**: complete — ready for testing
+- **Feature**: Production fixes — n8n workflow, TTS routing, callback URLs
+- **Phase**: testing
+- **Status**: fixes deployed to n8n, local changes pending Vercel redeploy
 
 ## Completed
 ### Phases 1-7 — Full Build
 - 110+ source files, 0 TypeScript errors
-- See previous build-state for phase-by-phase details
-
-### Audit Fixes Applied
 - Atomic credit operations via PostgreSQL RPCs (add_credits, deduct_credits)
-- PayFast/Stripe webhook idempotency (transaction_exists)
-- Password schema, Supabase client fixes, user_id filters, error toasts
-- New migration: 002_atomic_credits.sql
 
-### UI Bug Fixes
-- Credit balance not showing (setBalance missing isLoading: false)
-- Dropdown font color (explicit bg-neutral-900 text-white)
-- Nested button hydration error (removed Button from DropdownMenuTrigger)
+### Payments
+- PayPal REST API (USD) + PayFast (ZAR) — both live credentials
 
-### Environment Setup (This Session)
-- `.env.local` fully configured with all API keys:
-  - Supabase (URL, anon key, service role key)
-  - PayFast sandbox (merchant ID, key, passphrase)
-  - n8n webhook URL + secret
-  - Google Gemini API key
-  - ElevenLabs API key
-  - Kokoro TTS (URL, API key, voice)
-  - Fal AI key
-  - OpenRouter key
-  - Kie AI key
-  - Resend email key
-  - Cloudflare account + token
-- Supabase Storage buckets verified: audio, images, video, thumbnails
-- Profile created for existing user with 500 test credits
+### n8n Workflow Fixes (This Session)
+- Replaced `curl`/`fetch` with Node.js `require('https')` for binary ops in sandbox
+- Fixed Kokoro TTS: port 8765 -> 5099, POST -> GET with query params
+- Fixed premium voice tier: routed to Google Cloud TTS WaveNet (was incorrectly using ElevenLabs)
+- Fixed Gemini image generation: raw HTTP for large base64 responses (~1MB)
+- Added ElevenLabs quota detection with Kokoro fallback
+- All 6 Code nodes patched and pushed via REST API
 
-### n8n Workflow Setup (This Session)
-- **Deleted**: SnoozCast Generate v13 (snoozcast-v13-nanobanana)
-- **Created**: ContentForge Generate (JRKIyos4VFfmWw1D) — active
-  - Webhook: POST /webhook/contentforge-generate
-  - 8 nodes: Webhook → Switch Router → 4 type handlers + Error Handler
-  - **MP3**: Gemini script → TTS (Kokoro standard / ElevenLabs premium+ultra) → Supabase upload → callback
-  - **Description**: Gemini generation with brand voice + affiliate links → text upload → callback
-  - **Thumbnail**: Image gen (Gemini standard / Fal AI premium+ultra) → Supabase upload → callback
-  - **Video**: Script → TTS → Image generation → Ken Burns ffmpeg assembly → upload → callback
-  - Error handler reports failures back to app for auto-refund
+### Callback & Auth Fixes (This Session)
+- Added N8N_CALLBACK_URL env var (points to production) in all 4 generate routes
+- Fixed webhook secret trailing newline on Vercel
+- Enabled Supabase Realtime publication for generations table
 
-## Known Limitations
-- No Stripe keys configured (not in Global_API.md)
-- Local dev callback URL (localhost:3000) not reachable from VPS — generations will process but callback won't update status locally. Works when deployed to production URL.
-- Kokoro TTS outputs WAV → converted to MP3 via ffmpeg on VPS
+### TTS Tier Mapping (Current)
+| Tier | Provider | Method |
+|------|----------|--------|
+| Standard | Kokoro TTS (self-hosted) | GET :5099/tts?text=...&voice=am_michael |
+| Premium | Google Cloud TTS WaveNet | POST texttospeech.googleapis.com |
+| Ultra | ElevenLabs Multilingual v2 | POST api.elevenlabs.io |
+
+### Production URLs
+- **App**: https://contentforge-sigma.vercel.app
+- **Supabase**: https://vlznzzwxdappfbvjlimo.supabase.co
+- **n8n Webhook**: https://srv1319171.hstgr.cloud/webhook/contentforge-generate
 
 ## Pending
-- Deploy to production (Vercel/Netlify)
-- Configure production `NEXT_PUBLIC_APP_URL` for callbacks
-- Add Stripe keys when available
-- End-to-end testing with production URL
+- End-to-end test all generation types (MP3/video/thumbnail/description)
+- Redeploy to Vercel with callback URL changes
+- Connect Vercel to GitHub for auto-deploy (manual dashboard step)
+
+## Files Modified This Session
+- `.env.local` — KOKORO_ENDPOINT port fix, N8N_CALLBACK_URL added
+- `src/app/api/generate/mp3/route.ts` — N8N_CALLBACK_URL
+- `src/app/api/generate/video/route.ts` — N8N_CALLBACK_URL
+- `src/app/api/generate/thumbnail/route.ts` — N8N_CALLBACK_URL
+- `src/app/api/generate/description/route.ts` — N8N_CALLBACK_URL
+- `scripts/fix-n8n-curl.mjs` — n8n workflow patcher (created, iterated 5x)
+
+## Last Action
+Fixed premium voice tier to use Google Cloud TTS WaveNet. Pushed n8n workflow update.
 
 ## Resume Instructions
-All phases built, audited, and environment configured. Next steps:
-1. Deploy to Vercel/Netlify
-2. Set production URL in environment
-3. Test all 4 generation types end-to-end
-4. Configure Stripe if needed
+Run end-to-end tests for all generation types. Redeploy to Vercel after confirming locally.
