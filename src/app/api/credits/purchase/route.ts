@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createPayFastUrl } from '@/lib/payfast';
-import { createStripeCheckout } from '@/lib/stripe';
+import { createPayPalOrder } from '@/lib/paypal';
 import type { CreditPack } from '@/lib/types';
 
 export async function POST(request: NextRequest) {
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { packId, paymentMethod } = body as {
       packId: string;
-      paymentMethod: 'payfast' | 'stripe';
+      paymentMethod: 'payfast' | 'paypal';
     };
 
     if (!packId || !paymentMethod) {
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (paymentMethod !== 'payfast' && paymentMethod !== 'stripe') {
+    if (paymentMethod !== 'payfast' && paymentMethod !== 'paypal') {
       return NextResponse.json(
         { error: 'Invalid payment method' },
         { status: 400 }
@@ -71,13 +71,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ url });
     }
 
-    const url = await createStripeCheckout(
+    // PayPal
+    const url = await createPayPalOrder(
       user.id,
       pack.id,
       pack.name,
       pack.credits,
       pack.price_usd,
-      user.email
     );
 
     return NextResponse.json({ url });

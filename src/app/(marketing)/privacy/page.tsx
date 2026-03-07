@@ -48,7 +48,7 @@ export default function PrivacyPolicyPage() {
           </h3>
           <p className="text-neutral-300 leading-relaxed">
             Payments are processed by our third-party payment providers,
-            PayFast and Stripe. We do not store your credit card details or
+            PayFast and PayPal. We do not store your credit card details or
             banking information on our servers. We retain records of
             transaction amounts, dates, and credit pack purchases for
             accounting purposes.
@@ -146,7 +146,7 @@ export default function PrivacyPolicyPage() {
           <ul className="list-disc pl-6 text-neutral-300 space-y-2">
             <li>
               <strong className="text-white">Payment Processors:</strong>{' '}
-              PayFast and Stripe process your payments securely. They operate
+              PayFast and PayPal process your payments securely. They operate
               under their own privacy policies.
             </li>
             <li>

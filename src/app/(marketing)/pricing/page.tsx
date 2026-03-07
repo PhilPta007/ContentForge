@@ -82,7 +82,7 @@ const FAQ_ITEMS = [
   {
     question: 'What payment methods do you accept?',
     answer:
-      'We accept Visa, Mastercard, and American Express through Stripe for international payments (USD). South African users can also pay with EFT, local cards, and other methods through PayFast (ZAR).',
+      'We accept PayPal for international payments (USD), including cards and PayPal balance. South African users can also pay with EFT, local cards, and other methods through PayFast (ZAR).',
   },
 ];
 

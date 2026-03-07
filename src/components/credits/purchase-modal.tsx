@@ -11,7 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Coins, CreditCard, Loader2 } from 'lucide-react';
+import { Coins, CreditCard, Globe, Loader2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import type { CreditPack } from '@/lib/types';
 
@@ -21,7 +21,7 @@ interface PurchaseModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type PaymentMethod = 'payfast' | 'stripe';
+type PaymentMethod = 'payfast' | 'paypal';
 
 export function PurchaseModal({ pack, open, onOpenChange }: PurchaseModalProps) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('payfast');
@@ -108,17 +108,17 @@ export function PurchaseModal({ pack, open, onOpenChange }: PurchaseModalProps) 
                 </div>
               </button>
               <button
-                onClick={() => setPaymentMethod('stripe')}
+                onClick={() => setPaymentMethod('paypal')}
                 className={`flex items-center gap-2 rounded-lg border p-3 text-sm transition-colors ${
-                  paymentMethod === 'stripe'
+                  paymentMethod === 'paypal'
                     ? 'border-indigo-600 bg-indigo-600/10 text-white'
                     : 'border-neutral-800 bg-neutral-900 text-neutral-400 hover:border-neutral-700'
                 }`}
               >
-                <CreditCard className="h-4 w-4" />
+                <Globe className="h-4 w-4" />
                 <div className="text-left">
-                  <p className="font-medium">Stripe</p>
-                  <p className="text-xs text-neutral-500">USD &middot; Cards &middot; Apple Pay</p>
+                  <p className="font-medium">PayPal</p>
+                  <p className="text-xs text-neutral-500">USD &middot; Cards &middot; PayPal</p>
                 </div>
               </button>
             </div>

@@ -82,7 +82,7 @@ export default function TermsOfServicePage() {
             </li>
             <li>
               All payments are processed through our third-party payment
-              providers (PayFast and Stripe). We do not store your payment card
+              providers (PayFast and PayPal). We do not store your payment card
               details.
             </li>
             <li>
