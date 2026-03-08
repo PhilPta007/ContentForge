@@ -4,8 +4,10 @@
  * Reads all secrets from .env.local (gitignored) to prevent key leaks.
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Load secrets from .env.local
 const envPath = path.resolve(__dirname, '..', '.env.local');
