@@ -1,28 +1,36 @@
 /**
  * StudioStack n8n workflow patcher.
  * Pushes all Code node updates to the live n8n workflow.
- *
- * Fixes applied:
- * 1. TTS preprocessing — strips markdown before speech synthesis
- * 2. VEO3 Fast — replaces zoompan Ken Burns with AI-generated video clips
- * 3. South African prompt engineering — culturally accurate imagery
- * 4. Workflow metadata — renamed to StudioStack
- * 5. Duration matching — -shortest flag for audio/video sync
+ * Reads all secrets from .env.local (gitignored) to prevent key leaks.
  */
 
+const fs = require('fs');
+const path = require('path');
+
+// Load secrets from .env.local
+const envPath = path.resolve(__dirname, '..', '.env.local');
+const envContent = fs.readFileSync(envPath, 'utf-8');
+function env(key) {
+  const match = envContent.match(new RegExp('^' + key + '=(.*)$', 'm'));
+  if (!match) throw new Error('Missing ' + key + ' in .env.local');
+  return match[1].trim();
+}
+
+// n8n API key (for n8n REST API, not a Google key — safe to keep here)
 const N8N_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjODYxNGNmZi1iNGRmLTQ5NTEtYWQ1NS1jMmNiZWVkNDVjZDMiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzcwNjYwNDc4fQ.BTN2oI9RULuaNKRsqTRaUQh5MCuur42vMrJg328n-fM';
 const N8N_URL = 'https://srv1319171.hstgr.cloud';
 const WORKFLOW_ID = 'JRKIyos4VFfmWw1D';
 
 // ─── Shared Constants (injected into every Code node) ────────
-const CONSTANTS = `const GOOGLE_API_KEY = 'AIzaSyCh-1doqUXYn43cKyY3qoXzh18WjI_akec';
-const ELEVENLABS_KEY = 'sk_a44c76e0ce63277fe0eafc06a43d3cf45d427f8e17a26a93';
-const KOKORO_URL = 'http://31.97.118.216:5099';
-const KOKORO_KEY = 'deef1f92bbfd2267e7882c7125e5e8b7';
-const KIE_API_KEY = 'b3b5068ddf93b2d69185f5dfa793e7eb';
-const SUPABASE_URL = 'https://vlznzzwxdappfbvjlimo.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsem56end4ZGFwcGZidmpsaW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTcyNDQxMCwiZXhwIjoyMDg3MzAwNDEwfQ.XoBMZbHvw2lSuQjlArChGy1OBJg9SeFbU5eI4WMVWFE';
-const CB_SECRET = 'studiostack-n8n-webhook-2026';`;
+// These are embedded as string literals into n8n Code nodes
+const CONSTANTS = `const GOOGLE_API_KEY = '${env('GOOGLE_API_KEY')}';
+const ELEVENLABS_KEY = '${env('ELEVENLABS_API_KEY')}';
+const KOKORO_URL = '${env('KOKORO_ENDPOINT')}';
+const KOKORO_KEY = '${env('KOKORO_API_KEY')}';
+const KIE_API_KEY = '${env('KIE_API_KEY')}';
+const SUPABASE_URL = '${env('NEXT_PUBLIC_SUPABASE_URL')}';
+const SUPABASE_KEY = '${env('SUPABASE_SERVICE_ROLE_KEY')}';
+const CB_SECRET = '${env('N8N_WEBHOOK_SECRET')}';`;
 
 // ─── Callback helper ─────────────────────────────────────────
 const CALLBACK_FN = `
