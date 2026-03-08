@@ -10,6 +10,7 @@ const N8N_URL = 'https://srv1319171.hstgr.cloud';
 const WORKFLOW_ID = 'JRKIyos4VFfmWw1D';
 
 const CONSTANTS = `const GOOGLE_API_KEY = 'AIzaSyDSU3Gun4O0jm-thJIaz1jGXqIlGXQ9kh4';
+const GOOGLE_TTS_KEY = 'AIzaSyCvSgiT-PnIvjwIV3z9LnqFA-28EMCHq-Q';
 const ELEVENLABS_KEY = 'sk_a44c76e0ce63277fe0eafc06a43d3cf45d427f8e17a26a93';
 const KOKORO_URL = 'http://31.97.118.216:5099';
 const KOKORO_KEY = 'deef1f92bbfd2267e7882c7125e5e8b7';
@@ -170,7 +171,7 @@ try {
     for (let ci = 0; ci < chunks.length; ci++) {
       const ttsBody = { input: { text: chunks[ci] }, voice: { languageCode: 'en-US', name: 'en-US-WaveNet-D' }, audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0 } };
       const ttsRaw = await postBinaryRequest(
-        'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_API_KEY,
+        'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_TTS_KEY,
         { 'Content-Type': 'application/json' },
         ttsBody
       );
@@ -369,7 +370,7 @@ try {
     for (let ci = 0; ci < chunks.length; ci++) {
       const ttsBody = { input: { text: chunks[ci] }, voice: { languageCode: 'en-US', name: 'en-US-WaveNet-D' }, audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0 } };
       const ttsRaw = await postBinaryRequest(
-        'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_API_KEY,
+        'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_TTS_KEY,
         { 'Content-Type': 'application/json' },
         ttsBody
       );
