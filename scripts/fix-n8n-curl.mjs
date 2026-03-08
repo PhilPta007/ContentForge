@@ -9,7 +9,7 @@ const N8N_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjODYxNGNmZi1iNG
 const N8N_URL = 'https://srv1319171.hstgr.cloud';
 const WORKFLOW_ID = 'JRKIyos4VFfmWw1D';
 
-const CONSTANTS = `const GOOGLE_API_KEY = 'AIzaSyCvSgiT-PnIvjwIV3z9LnqFA-28EMCHq-Q';
+const CONSTANTS = `const GOOGLE_API_KEY = 'AIzaSyCh-1doqUXYn43cKyY3qoXzh18WjI_akec';
 const ELEVENLABS_KEY = 'sk_a44c76e0ce63277fe0eafc06a43d3cf45d427f8e17a26a93';
 const KOKORO_URL = 'http://31.97.118.216:5099';
 const KOKORO_KEY = 'deef1f92bbfd2267e7882c7125e5e8b7';
