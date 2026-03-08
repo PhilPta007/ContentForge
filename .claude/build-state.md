@@ -1,41 +1,44 @@
 # Build State
 
-> Last updated: 2026-03-08
-> Auto-saved after: my.sync — code review fixes
+> Last updated: 2026-03-08T10:30:00Z
+> Auto-saved after: my.sync — n8n workflow fixes + API key rotation
 
 ## Current Session
-- **Feature**: Code review fixes — remove Stripe refs, update providers, fix docs
+- **Feature**: n8n workflow debugging — image gen, TTS, video compression, API key fixes
 - **Phase**: testing
-- **Status**: fixes applied, pending Vercel redeploy
+- **Status**: all fixes deployed, awaiting successful end-to-end test
 
 ## Completed This Session
-- Removed all Stripe references from progress.md, CLAUDE.md, .env.local.example
-- Replaced Stripe with PayPal in .env.local.example
-- Updated MOTION_PROVIDERS to Kie.ai VEO3 Fast (both ai and premium tiers)
-- Updated CLAUDE.md AI Services to match actual providers (fal.ai Flux images, WaveNet TTS)
-- Added N8N_CALLBACK_URL to .env.local.example
-- Fixed webhook docs in CLAUDE.md (PayPal capture instead of Stripe)
+- Updated Thumbnail Handler from Gemini to Kie.ai Nano Banana 2 (Gemini 404 in n8n)
+- Updated Video Prepare image gen from Gemini to Kie.ai Nano Banana 2
+- Fixed video compression for Supabase 50MB limit (960x540, CRF 28, re-encode fallback)
+- Switched Google TTS from postBinaryRequest to this.helpers.httpRequest (403 fix)
+- Added error labels to Video Prepare for debugging ([Gemini-Script], [Google-TTS], etc.)
+- Replaced leaked Google API key (AIzaSyCvSgiT → AIzaSyCh-1doqUXYn43cKyY3qoXzh18WjI_akec)
+- Set Supabase video bucket file_size_limit to 100MB
+- Verified new key works for both Gemini and Cloud TTS
 
-## Previous Session (carried forward)
-- Fixed n8n Code nodes: require('https') for binary ops
+## Previous Sessions (carried forward)
+- Renamed ContentForge → StudioStack across 27+ files
+- Fixed n8n Code nodes: catch {} → catch (_e) {} for VM compatibility
 - Fixed Kokoro TTS: port 5099, GET method
 - Fixed premium voice: Google Cloud TTS WaveNet
-- Fixed callback URL + webhook auth
 - All 6 n8n workflow nodes patched and active
 
 ## Pending
-- End-to-end test all generation types
-- Redeploy to Vercel with latest changes
-- Connect Vercel to GitHub for auto-deploy
+- End-to-end test video generation (all fixes deployed, awaiting test result)
+- End-to-end test MP3 generation
+- End-to-end test thumbnail generation
+- End-to-end test description generation
+- Update Vercel env vars with new Google API key
+- Clean up tmp-*.json files from repo root
 
 ## Files Modified This Session
-- `.env.local.example` — Stripe removed, PayPal added, N8N_CALLBACK_URL added
-- `CLAUDE.md` — AI Services, Payments, Webhook sections updated
-- `progress.md` — Stripe references removed
-- `src/lib/providers.ts` — MOTION_PROVIDERS → Kie.ai VEO3 Fast
+- `scripts/fix-n8n-curl.mjs` — Kie.ai images, TTS httpRequest, error labels, new API key
+- `.env.local` — Updated GOOGLE_API_KEY
 
 ## Last Action
-Updated MOTION_PROVIDERS premium tier to Kie.ai VEO3 Fast (matching ai tier).
+Replaced leaked Google API key. Both Gemini and TTS confirmed working (200).
 
 ## Resume Instructions
-Redeploy to Vercel. Run end-to-end tests for all generation types.
+Test video generation end-to-end. If successful, test remaining types (MP3, thumbnail, description). Update Vercel env with new Google API key.
