@@ -351,13 +351,16 @@ try {
       podcast: 'conversational podcast', youtube_hype: 'energetic YouTube script'
     };
     const scriptPrompt = 'Write a ' + (toneMap[tone] || 'script') + ' about: ' + topic + '. Approximately ' + duration + ' minutes when read aloud (~' + (duration * 150) + ' words). Structure with clear sections separated by --- markers. Each section 2-3 paragraphs. No headings or metadata, just narration text with --- between sections.';
-    const scriptResp = await this.helpers.httpRequest({
-      method: 'POST',
-      url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + GOOGLE_API_KEY,
-      headers: { 'Content-Type': 'application/json' },
-      body: { contents: [{ parts: [{ text: scriptPrompt }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 8192 } },
-      json: true, timeout: 60000
-    });
+    let scriptResp;
+    try {
+      scriptResp = await this.helpers.httpRequest({
+        method: 'POST',
+        url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + GOOGLE_API_KEY,
+        headers: { 'Content-Type': 'application/json' },
+        body: { contents: [{ parts: [{ text: scriptPrompt }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 8192 } },
+        json: true, timeout: 60000
+      });
+    } catch (scriptErr) { throw new Error('[Gemini-Script] ' + scriptErr.message); }
     script = scriptResp.candidates[0].content.parts[0].text;
   }
   const sections = script.split(/---+/).map(s => s.trim()).filter(s => s.length > 0);
@@ -385,14 +388,17 @@ try {
     const mp3Parts = [];
     for (let ci = 0; ci < chunks.length; ci++) {
       const ttsBody = { input: { text: chunks[ci] }, voice: { languageCode: 'en-US', name: 'en-US-WaveNet-D' }, audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0 } };
-      const ttsResp = await this.helpers.httpRequest({
-        method: 'POST',
-        url: 'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_API_KEY,
-        headers: { 'Content-Type': 'application/json' },
-        body: ttsBody,
-        json: true, timeout: 60000
-      });
-      if (!ttsResp.audioContent) throw new Error('Google TTS returned no audio for chunk ' + ci);
+      let ttsResp;
+      try {
+        ttsResp = await this.helpers.httpRequest({
+          method: 'POST',
+          url: 'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_API_KEY,
+          headers: { 'Content-Type': 'application/json' },
+          body: ttsBody,
+          json: true, timeout: 60000
+        });
+      } catch (ttsErr) { throw new Error('[Google-TTS-chunk' + ci + '] ' + ttsErr.message); }
+      if (!ttsResp.audioContent) throw new Error('[Google-TTS] No audio for chunk ' + ci);
       mp3Parts.push(Buffer.from(ttsResp.audioContent, 'base64'));
     }
     if (mp3Parts.length === 1) {
@@ -407,17 +413,22 @@ try {
     }
   } else {
     // ElevenLabs (ultra) - adam voice
-    const mp3Buf = await postBinaryRequest(
-      'https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB',
-      { 'xi-api-key': ELEVENLABS_KEY, 'Content-Type': 'application/json' },
-      { text: script, model_id: 'eleven_multilingual_v2', voice_settings: { stability: 0.75, similarity_boost: 0.75, style: 0.35, use_speaker_boost: true } }
-    );
+    let mp3Buf;
+    try {
+      mp3Buf = await postBinaryRequest(
+        'https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB',
+        { 'xi-api-key': ELEVENLABS_KEY, 'Content-Type': 'application/json' },
+        { text: script, model_id: 'eleven_multilingual_v2', voice_settings: { stability: 0.75, similarity_boost: 0.75, style: 0.35, use_speaker_boost: true } }
+      );
+    } catch (elErr) { throw new Error('[ElevenLabs-TTS] ' + elErr.message); }
     fs.writeFileSync(tmpDir + '/audio.mp3', mp3Buf);
   }
 
   const audioStat = fs.statSync(tmpDir + '/audio.mp3');
-  if (audioStat.size < 1000) throw new Error('Audio file too small: ' + audioStat.size + ' bytes');
-  await uploadToSupabase('audio', generationId + '.mp3', tmpDir + '/audio.mp3', 'audio/mpeg');
+  if (audioStat.size < 1000) throw new Error('[Audio] File too small: ' + audioStat.size + ' bytes');
+  try {
+    await uploadToSupabase('audio', generationId + '.mp3', tmpDir + '/audio.mp3', 'audio/mpeg');
+  } catch (upErr) { throw new Error('[Supabase-AudioUpload] ' + upErr.message); }
 
   // Generate images - all tiers use Gemini image generation (no fal.ai)
   const targetImages = sceneCount || Math.max(3, Math.ceil((duration * 60) / 30));
@@ -485,6 +496,7 @@ try {
   return [{ json: { generationId, callbackUrl, script, topic, duration, uploadedImages, tmpDir } }];
 } catch (e) {
   try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_e) {}
+  e.message = '[VideoPrepare] ' + e.message;
   throw e;
 }`;
 
