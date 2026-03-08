@@ -55,6 +55,7 @@ export function MarketingHeader() {
       {/* Mobile hamburger */}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger
+          id="mobile-menu-trigger"
           className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-400 transition-colors hover:text-white md:hidden"
         >
           <Menu className="size-5" />

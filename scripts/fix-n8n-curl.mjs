@@ -43,7 +43,7 @@ async function sendCallback(helpers, callbackUrl, generationId, status, outputUr
       method: 'POST', url: callbackUrl,
       headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': CB_SECRET },
       body: { generationId, status, outputUrl, metadata, error, progress: progress || null },
-      json: true, timeout: 5000
+      json: true, timeout: 15000
     });
   } catch (_e) { /* callback failed - don't block pipeline */ }
 }`;
@@ -639,10 +639,8 @@ try {
     await uploadToSupabase('audio', generationId + '.mp3', tmpDir + '/audio.mp3', 'audio/mpeg');
   } catch (upErr) { throw new Error('[Supabase-AudioUpload] ' + upErr.message); }
 
-  // ── Step 4: Calculate required clips for duration matching ──
-  const audioDurationEstimate = (script.split(/\\s+/).length / 150) * 60;
-  const clipDuration = 8;
-  const requiredClips = Math.max(3, sceneCount || Math.ceil(audioDurationEstimate / clipDuration));
+  // ── Step 4: Use scene count from webhook payload ──
+  const requiredClips = Math.max(3, sceneCount || 5);
 
   // ── Step 5: Build SA-anchored image prompts ──
   const totalWords = sections.reduce((sum, s) => sum + s.split(/\\s+/).length, 0);
@@ -736,11 +734,16 @@ try {
 
   if (motionTier === 'static' || !motionTier) {
     // Ken Burns effect — ffmpeg zoompan on still images
+    // Smooth Ken Burns: use on/d ratio for linear interpolation (no per-frame float accumulation)
+    // d=300 at fps=25 = 12s clips (longer, smoother, fewer loops needed)
+    // Zoom range 1.0-1.15 (subtle), pan uses smooth ratio instead of integer pixel jumps
     const kenBurnsFilters = [
-      "zoompan=z='min(zoom+0.001,1.2)':d=240:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1920x1080:fps=30",
-      "zoompan=z='if(eq(on,1),1.2,max(zoom-0.001,1.0))':d=240:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1920x1080:fps=30",
-      "zoompan=z='1.05':d=240:x='if(eq(on,1),0,min(x+2,iw-iw/zoom))':y='ih/2-(ih/zoom/2)':s=1920x1080:fps=30",
-      "zoompan=z='1.05':d=240:x='iw/2-(iw/zoom/2)':y='if(eq(on,1),0,min(y+1,ih-ih/zoom))':s=1920x1080:fps=30"
+      "zoompan=z='1.0+0.15*(on/d)':d=300:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1920x1080:fps=25",
+      "zoompan=z='1.15-0.15*(on/d)':d=300:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1920x1080:fps=25",
+      "zoompan=z='1.08':d=300:x='(iw-iw/zoom)*(on/d)':y='ih/2-(ih/zoom/2)':s=1920x1080:fps=25",
+      "zoompan=z='1.08':d=300:x='(iw-iw/zoom)*(1-on/d)':y='ih/2-(ih/zoom/2)':s=1920x1080:fps=25",
+      "zoompan=z='1.08':d=300:x='iw/2-(iw/zoom/2)':y='(ih-ih/zoom)*(on/d)':s=1920x1080:fps=25",
+      "zoompan=z='1.0+0.12*(on/d)':d=300:x='(iw-iw/zoom)*(on/d)':y='(ih-ih/zoom)*(on/d)':s=1920x1080:fps=25"
     ];
 
     for (let i = 0; i < uploadedImages.length; i++) {
@@ -750,7 +753,7 @@ try {
         const clipPath = tmpDir + '/kb_clip_' + String(i).padStart(3, '0') + '.mp4';
         const filter = kenBurnsFilters[i % kenBurnsFilters.length];
         fs.writeFileSync(tmpDir + '/filter_' + i + '.txt', filter);
-        execSync('ffmpeg -loop 1 -i ' + imgPath + ' -filter_script:v ' + tmpDir + '/filter_' + i + '.txt -c:v libx264 -t 8 -pix_fmt yuv420p -y ' + clipPath, { timeout: 120000 });
+        execSync('ffmpeg -loop 1 -i ' + imgPath + ' -filter_script:v ' + tmpDir + '/filter_' + i + '.txt -c:v libx264 -t 12 -pix_fmt yuv420p -y ' + clipPath, { timeout: 120000 });
         if (fs.existsSync(clipPath) && fs.statSync(clipPath).size > 5000) {
           videoClips.push({ index: i, localPath: clipPath });
         }
@@ -759,7 +762,7 @@ try {
       }
     }
   } else {
-    // VEO3 Fast clips (ai and premium tiers)
+    // VEO3 Fast clips (ai and premium tiers) — hero clips
     for (let i = 0; i < uploadedImages.length; i++) {
       try {
         await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'generating_videos', current: i + 1, total: uploadedImages.length, message: 'Generating video clip ' + (i + 1) + ' of ' + uploadedImages.length + '...' });
@@ -771,9 +774,66 @@ try {
         motionErrors.push('veo' + i + ':' + (veoErr.message || String(veoErr)).substring(0, 150));
       }
     }
+
+    // ── Hybrid filler: Ken Burns clips to reduce repetition on long videos ──
+    const veoClipDuration = 8;
+    const kbClipDuration = 12;
+    const heroSeconds = videoClips.length * veoClipDuration;
+    const audioDurationEstimate = (script.split(/\\s+/).length / 150) * 60;
+    const fillerNeeded = audioDurationEstimate - heroSeconds;
+
+    if (fillerNeeded > kbClipDuration && uploadedImages.length > 0) {
+      const fillerFilters = [
+        "zoompan=z='1.0+0.15*(on/d)':d=300:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1920x1080:fps=25",
+        "zoompan=z='1.15-0.15*(on/d)':d=300:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1920x1080:fps=25",
+        "zoompan=z='1.08':d=300:x='(iw-iw/zoom)*(on/d)':y='ih/2-(ih/zoom/2)':s=1920x1080:fps=25",
+        "zoompan=z='1.08':d=300:x='(iw-iw/zoom)*(1-on/d)':y='ih/2-(ih/zoom/2)':s=1920x1080:fps=25",
+        "zoompan=z='1.08':d=300:x='iw/2-(iw/zoom/2)':y='(ih-ih/zoom)*(on/d)':s=1920x1080:fps=25",
+        "zoompan=z='1.0+0.12*(on/d)':d=300:x='(iw-iw/zoom)*(on/d)':y='(ih-ih/zoom)*(on/d)':s=1920x1080:fps=25"
+      ];
+      const fillerClipsNeeded = Math.min(Math.ceil(fillerNeeded / kbClipDuration), uploadedImages.length * fillerFilters.length);
+      let fillerCount = 0;
+
+      await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'generating_filler', message: 'Creating filler clips for duration coverage...' });
+
+      for (let pass = 0; pass < fillerFilters.length && fillerCount < fillerClipsNeeded; pass++) {
+        for (let i = 0; i < uploadedImages.length && fillerCount < fillerClipsNeeded; i++) {
+          try {
+            const imgPath = tmpDir + '/img_' + uploadedImages[i].index + '.jpg';
+            const clipPath = tmpDir + '/filler_' + String(fillerCount).padStart(3, '0') + '.mp4';
+            const filter = fillerFilters[pass];
+            fs.writeFileSync(tmpDir + '/ffilter_' + fillerCount + '.txt', filter);
+            execSync('ffmpeg -loop 1 -i ' + imgPath + ' -filter_script:v ' + tmpDir + '/ffilter_' + fillerCount + '.txt -c:v libx264 -t 12 -pix_fmt yuv420p -y ' + clipPath, { timeout: 120000 });
+            if (fs.existsSync(clipPath) && fs.statSync(clipPath).size > 5000) {
+              videoClips.push({ index: uploadedImages.length + fillerCount, localPath: clipPath });
+              fillerCount++;
+            }
+          } catch (_kbErr) {}
+        }
+      }
+    }
   }
 
   if (videoClips.length === 0) throw new Error('[Motion] All clips failed: ' + motionErrors.join(' | '));
+
+  // Interleave hero clips (VEO3/primary) and filler clips (Ken Burns) for variety
+  // Heroes have index < uploadedImages.length, fillers have index >= uploadedImages.length
+  const heroClips = videoClips.filter(c => c.index < uploadedImages.length);
+  const fillerClips = videoClips.filter(c => c.index >= uploadedImages.length);
+  if (fillerClips.length > 0 && heroClips.length > 0) {
+    const interleaved = [];
+    const fillerPerHero = Math.max(1, Math.ceil(fillerClips.length / heroClips.length));
+    let fi = 0;
+    for (let hi = 0; hi < heroClips.length; hi++) {
+      interleaved.push(heroClips[hi]);
+      for (let f = 0; f < fillerPerHero && fi < fillerClips.length; f++) {
+        interleaved.push(fillerClips[fi++]);
+      }
+    }
+    while (fi < fillerClips.length) interleaved.push(fillerClips[fi++]);
+    videoClips.length = 0;
+    videoClips.push(...interleaved);
+  }
 
   return [{ json: { generationId, callbackUrl, script, topic, duration, videoClips, uploadedImages, tmpDir, motionErrors, motionTier: motionTier || 'static' } }];
 } catch (e) {
@@ -823,21 +883,34 @@ try {
   }
   if (downloadedClips.length === 0) throw new Error('All clip downloads/copies failed');
 
-  // Simple concat — VEO3 clips only, no static image effects
+  // Concat all clips, then loop to match audio duration
   const concatList = downloadedClips.map(f => "file '" + f + "'").join('\\n');
   fs.writeFileSync(tmpDir + '/concat.txt', concatList);
-  execSync('ffmpeg -f concat -safe 0 -i ' + tmpDir + '/concat.txt -c copy -y ' + tmpDir + '/video_no_audio.mp4', { timeout: 600000 });
+  execSync('ffmpeg -f concat -safe 0 -i ' + tmpDir + '/concat.txt -c copy -y ' + tmpDir + '/video_raw.mp4', { timeout: 600000 });
 
-  // Replace VEO3 audio with TTS audio, use -shortest to match lengths
+  // Check if video is shorter than audio; if so, loop video to cover full audio
+  const videoDuration = parseFloat(execSync('ffprobe -v error -show_entries format=duration -of csv=p=0 ' + tmpDir + '/video_raw.mp4', { timeout: 10000 }).toString().trim());
+  if (videoDuration < audioDuration - 1) {
+    // Loop video to match audio length, then trim to exact audio duration
+    const loopCount = Math.ceil(audioDuration / videoDuration);
+    execSync('ffmpeg -stream_loop ' + (loopCount - 1) + ' -i ' + tmpDir + '/video_raw.mp4 -t ' + Math.ceil(audioDuration) + ' -c copy -y ' + tmpDir + '/video_no_audio.mp4', { timeout: 600000 });
+  } else {
+    fs.renameSync(tmpDir + '/video_raw.mp4', tmpDir + '/video_no_audio.mp4');
+  }
+
+  // Combine video with TTS audio, trim to audio duration
   execSync('ffmpeg -i ' + tmpDir + '/video_no_audio.mp4 -i ' + tmpDir + '/audio.mp3 -c:v copy -c:a aac -b:a 128k -map 0:v:0 -map 1:a:0 -shortest -y ' + tmpDir + '/final.mp4', { timeout: 600000 });
 
   // Extract thumbnail from first frame
   execSync('ffmpeg -i ' + tmpDir + '/final.mp4 -vframes 1 -q:v 2 -y ' + tmpDir + '/thumbnail.jpg', { timeout: 30000 });
 
-  // Re-encode if over 45MB (Supabase 50MB limit)
+  // Re-encode to stay under Supabase 50MB limit
   let finalSize = fs.statSync(tmpDir + '/final.mp4').size;
-  if (finalSize > 45 * 1024 * 1024) {
-    execSync('ffmpeg -i ' + tmpDir + '/final.mp4 -c:v libx264 -preset medium -crf 28 -c:a aac -b:a 96k -y ' + tmpDir + '/final_small.mp4', { timeout: 600000 });
+  const MAX_SIZE = 45 * 1024 * 1024;
+  if (finalSize > MAX_SIZE) {
+    // Calculate target bitrate: (targetBytes * 8) / duration, leave 10% margin
+    const targetBitrate = Math.floor((MAX_SIZE * 0.9 * 8) / audioDuration);
+    execSync('ffmpeg -i ' + tmpDir + '/final.mp4 -c:v libx264 -preset medium -b:v ' + targetBitrate + ' -maxrate ' + targetBitrate + ' -bufsize ' + (targetBitrate * 2) + ' -c:a aac -b:a 96k -y ' + tmpDir + '/final_small.mp4', { timeout: 600000 });
     fs.renameSync(tmpDir + '/final_small.mp4', tmpDir + '/final.mp4');
     finalSize = fs.statSync(tmpDir + '/final.mp4').size;
   }
