@@ -26,6 +26,7 @@ const WORKFLOW_ID = 'JRKIyos4VFfmWw1D';
 // ─── Shared Constants (injected into every Code node) ────────
 // These are embedded as string literals into n8n Code nodes
 const CONSTANTS = `const GOOGLE_API_KEY = '${env('GOOGLE_API_KEY')}';
+const GOOGLE_TTS_KEY = '${env('GOOGLE_TTS_KEY')}';
 const ELEVENLABS_KEY = '${env('ELEVENLABS_API_KEY')}';
 const KOKORO_URL = '${env('KOKORO_ENDPOINT')}';
 const KOKORO_KEY = '${env('KOKORO_API_KEY')}';
@@ -284,7 +285,7 @@ try {
       const ttsBody = { input: { text: chunks[ci] }, voice: { languageCode: 'en-US', name: 'en-US-WaveNet-D' }, audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0 } };
       const ttsResp = await this.helpers.httpRequest({
         method: 'POST',
-        url: 'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_API_KEY,
+        url: 'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_TTS_KEY,
         headers: { 'Content-Type': 'application/json' },
         body: ttsBody,
         json: true, timeout: 60000
@@ -519,7 +520,7 @@ try {
       try {
         ttsResp = await this.helpers.httpRequest({
           method: 'POST',
-          url: 'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_API_KEY,
+          url: 'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_TTS_KEY,
           headers: { 'Content-Type': 'application/json' },
           body: ttsBody,
           json: true, timeout: 60000
