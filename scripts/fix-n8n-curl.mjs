@@ -146,7 +146,7 @@ async function postBinaryRequest(url, headers, jsonBody) {
 
 // ─── VEO3 Fast helper (shared by Video Prepare) ─────────────
 const VEO3_HELPER = `
-async function generateVEO3Clip(helpers, kieKey, imageUrl, prompt, maxWaitMs) {
+async function generateVEO3Clip(helpers, kieKey, prompt, maxWaitMs) {
   maxWaitMs = maxWaitMs || 180000;
   const createResp = await helpers.httpRequest({
     method: 'POST',
@@ -154,9 +154,7 @@ async function generateVEO3Clip(helpers, kieKey, imageUrl, prompt, maxWaitMs) {
     headers: { 'Authorization': 'Bearer ' + kieKey, 'Content-Type': 'application/json' },
     body: {
       model: 'veo3_fast',
-      generationType: 'REFERENCE_2_VIDEO',
-      prompt: prompt.substring(0, 300),
-      referenceImage: imageUrl,
+      prompt: prompt.substring(0, 500),
       aspect_ratio: '16:9',
       duration: 8
     },
@@ -171,7 +169,7 @@ async function generateVEO3Clip(helpers, kieKey, imageUrl, prompt, maxWaitMs) {
   const startTime = Date.now();
 
   while (Date.now() - startTime < maxWaitMs) {
-    await new Promise(r => setTimeout(r, 5000));
+    await new Promise(r => setTimeout(r, 8000));
     const statusResp = await helpers.httpRequest({
       method: 'GET',
       url: 'https://api.kie.ai/api/v1/veo/record-info?taskId=' + taskId,
@@ -179,19 +177,18 @@ async function generateVEO3Clip(helpers, kieKey, imageUrl, prompt, maxWaitMs) {
       json: true, timeout: 10000
     });
 
-    const state = statusResp.data && statusResp.data.state;
-    if (state === 'success') {
-      const rawResult = statusResp.data.resultJson;
-      if (!rawResult || rawResult === 'null') {
-        throw new Error('VEO3 success but resultJson is empty: ' + JSON.stringify(statusResp.data).substring(0, 300));
-      }
-      const result = typeof rawResult === 'string' ? JSON.parse(rawResult) : rawResult;
-      if (result.videoUrl) return result.videoUrl;
-      if (result.resultUrls && result.resultUrls[0]) return result.resultUrls[0];
-      throw new Error('VEO3 success but no videoUrl: ' + JSON.stringify(result).substring(0, 300));
+    const d = statusResp.data;
+    if (!d) continue;
+
+    if (d.errorCode || d.errorMessage) {
+      throw new Error('VEO3 failed: ' + (d.errorMessage || d.errorCode));
     }
-    if (state === 'fail') {
-      throw new Error('VEO3 failed: ' + (statusResp.data.failMsg || 'unknown'));
+
+    if (d.successFlag === 1 && d.response) {
+      if (d.response.resultUrls && d.response.resultUrls[0]) {
+        return d.response.resultUrls[0];
+      }
+      throw new Error('VEO3 complete but no resultUrls: ' + JSON.stringify(d.response).substring(0, 300));
     }
   }
 
@@ -648,8 +645,8 @@ try {
   for (let i = 0; i < uploadedImages.length; i++) {
     try {
       if (i > 0) await new Promise(r => setTimeout(r, 3000));
-      const motionPrompt = 'Slow cinematic camera movement across this South African scene. Subtle pan and gentle zoom. Atmospheric, documentary feel.';
-      const clipUrl = await generateVEO3Clip(this.helpers, KIE_API_KEY, uploadedImages[i].url, motionPrompt, 180000);
+      const motionPrompt = uploadedImages[i].prompt + '. Slow cinematic camera movement, subtle pan and gentle zoom, atmospheric documentary feel, South African setting.';
+      const clipUrl = await generateVEO3Clip(this.helpers, KIE_API_KEY, motionPrompt, 180000);
       videoClips.push({ index: i, url: clipUrl });
     } catch (veoErr) {
       veoErrors.push('veo' + i + ':' + (veoErr.message || String(veoErr)).substring(0, 150));
