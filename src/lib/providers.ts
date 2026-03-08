@@ -15,10 +15,10 @@ export const VOICE_PROVIDERS: Record<VoiceTier, ProviderConfig> = {
     voice: 'af_heart',
   },
   premium: {
-    provider: 'ElevenLabs',
-    model: 'eleven_multilingual_v2',
-    endpoint: 'https://api.elevenlabs.io/v1/text-to-speech',
-    voice: 'daniel',
+    provider: 'Google',
+    model: 'en-US-WaveNet-D',
+    endpoint: 'https://texttospeech.googleapis.com/v1/text:synthesize',
+    voice: 'en-US-WaveNet-D',
   },
   ultra: {
     provider: 'ElevenLabs',

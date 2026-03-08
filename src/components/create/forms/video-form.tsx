@@ -31,14 +31,14 @@ const VOICE_OPTIONS = [
   {
     id: 'premium',
     name: 'Premium',
-    description: 'ElevenLabs',
+    description: 'Google WaveNet',
     creditsPerUnit: VOICE_CREDITS.premium,
     recommended: true,
   },
   {
     id: 'ultra',
     name: 'Ultra',
-    description: 'ElevenLabs HD',
+    description: 'ElevenLabs',
     creditsPerUnit: VOICE_CREDITS.ultra,
   },
 ];

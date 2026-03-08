@@ -146,18 +146,52 @@ try {
     script = geminiResp.candidates[0].content.parts[0].text;
   }
 
-  // TTS - standard=Kokoro, premium=ElevenLabs(daniel), ultra=ElevenLabs(adam)
+  // TTS - standard=Kokoro, premium=Google WaveNet, ultra=ElevenLabs(adam)
   if (voiceTier === 'standard') {
     const kokoroUrl = KOKORO_URL + '/tts?text=' + encodeURIComponent(script) + '&voice=am_michael';
     const wavBuf = await httpBinaryRequest(kokoroUrl, { method: 'GET', timeout: 300000 });
     fs.writeFileSync(tmpDir + '/audio.wav', wavBuf);
     if (wavBuf.length < 1000) throw new Error('Kokoro returned empty audio (' + wavBuf.length + ' bytes)');
     execSync('ffmpeg -i ' + tmpDir + '/audio.wav -codec:a libmp3lame -b:a 128k -y ' + tmpDir + '/audio.mp3', { timeout: 120000 });
+  } else if (voiceTier === 'premium') {
+    // Google Cloud TTS WaveNet
+    const maxChunk = 4500;
+    const chunks = [];
+    let remaining = script;
+    while (remaining.length > 0) {
+      if (remaining.length <= maxChunk) { chunks.push(remaining); break; }
+      let splitAt = remaining.lastIndexOf('. ', maxChunk);
+      if (splitAt < maxChunk * 0.5) splitAt = remaining.lastIndexOf(' ', maxChunk);
+      if (splitAt < 1) splitAt = maxChunk;
+      chunks.push(remaining.substring(0, splitAt + 1));
+      remaining = remaining.substring(splitAt + 1).trimStart();
+    }
+    const mp3Parts = [];
+    for (let ci = 0; ci < chunks.length; ci++) {
+      const ttsBody = { input: { text: chunks[ci] }, voice: { languageCode: 'en-US', name: 'en-US-WaveNet-D' }, audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0 } };
+      const ttsRaw = await postBinaryRequest(
+        'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_API_KEY,
+        { 'Content-Type': 'application/json' },
+        ttsBody
+      );
+      const ttsResp = JSON.parse(ttsRaw.toString('utf-8'));
+      if (!ttsResp.audioContent) throw new Error('Google TTS returned no audio for chunk ' + ci);
+      mp3Parts.push(Buffer.from(ttsResp.audioContent, 'base64'));
+    }
+    if (mp3Parts.length === 1) {
+      fs.writeFileSync(tmpDir + '/audio.mp3', mp3Parts[0]);
+    } else {
+      for (let ci = 0; ci < mp3Parts.length; ci++) {
+        fs.writeFileSync(tmpDir + '/part_' + ci + '.mp3', mp3Parts[ci]);
+      }
+      const concatList = mp3Parts.map((_, ci) => "file '" + tmpDir + '/part_' + ci + ".mp3'").join('\\n');
+      fs.writeFileSync(tmpDir + '/concat.txt', concatList);
+      execSync('ffmpeg -f concat -safe 0 -i ' + tmpDir + '/concat.txt -c copy -y ' + tmpDir + '/audio.mp3', { timeout: 60000 });
+    }
   } else {
-    // ElevenLabs for premium and ultra
-    const voiceId = voiceTier === 'ultra' ? 'pNInz6obpgDQGcFmaJgB' : 'onwK4e9ZLuTAKqWW03F9';
+    // ElevenLabs (ultra) - adam voice
     const mp3Buf = await postBinaryRequest(
-      'https://api.elevenlabs.io/v1/text-to-speech/' + voiceId,
+      'https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB',
       { 'xi-api-key': ELEVENLABS_KEY, 'Content-Type': 'application/json' },
       { text: script, model_id: 'eleven_multilingual_v2', voice_settings: { stability: 0.75, similarity_boost: 0.75, style: 0.35, use_speaker_boost: true } }
     );
@@ -311,18 +345,52 @@ try {
   }
   const sections = script.split(/---+/).map(s => s.trim()).filter(s => s.length > 0);
 
-  // TTS - standard=Kokoro, premium=ElevenLabs(daniel), ultra=ElevenLabs(adam)
+  // TTS - standard=Kokoro, premium=Google WaveNet, ultra=ElevenLabs(adam)
   if (voiceTier === 'standard') {
     const kokoroUrl = KOKORO_URL + '/tts?text=' + encodeURIComponent(script) + '&voice=am_michael';
     const wavBuf = await httpBinaryRequest(kokoroUrl, { method: 'GET', timeout: 300000 });
     fs.writeFileSync(tmpDir + '/audio.wav', wavBuf);
     if (wavBuf.length < 1000) throw new Error('Kokoro returned empty audio (' + wavBuf.length + ' bytes)');
     execSync('ffmpeg -i ' + tmpDir + '/audio.wav -codec:a libmp3lame -b:a 128k -y ' + tmpDir + '/audio.mp3', { timeout: 120000 });
+  } else if (voiceTier === 'premium') {
+    // Google Cloud TTS WaveNet
+    const maxChunk = 4500;
+    const chunks = [];
+    let remaining = script;
+    while (remaining.length > 0) {
+      if (remaining.length <= maxChunk) { chunks.push(remaining); break; }
+      let splitAt = remaining.lastIndexOf('. ', maxChunk);
+      if (splitAt < maxChunk * 0.5) splitAt = remaining.lastIndexOf(' ', maxChunk);
+      if (splitAt < 1) splitAt = maxChunk;
+      chunks.push(remaining.substring(0, splitAt + 1));
+      remaining = remaining.substring(splitAt + 1).trimStart();
+    }
+    const mp3Parts = [];
+    for (let ci = 0; ci < chunks.length; ci++) {
+      const ttsBody = { input: { text: chunks[ci] }, voice: { languageCode: 'en-US', name: 'en-US-WaveNet-D' }, audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0 } };
+      const ttsRaw = await postBinaryRequest(
+        'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_API_KEY,
+        { 'Content-Type': 'application/json' },
+        ttsBody
+      );
+      const ttsResp = JSON.parse(ttsRaw.toString('utf-8'));
+      if (!ttsResp.audioContent) throw new Error('Google TTS returned no audio for chunk ' + ci);
+      mp3Parts.push(Buffer.from(ttsResp.audioContent, 'base64'));
+    }
+    if (mp3Parts.length === 1) {
+      fs.writeFileSync(tmpDir + '/audio.mp3', mp3Parts[0]);
+    } else {
+      for (let ci = 0; ci < mp3Parts.length; ci++) {
+        fs.writeFileSync(tmpDir + '/part_' + ci + '.mp3', mp3Parts[ci]);
+      }
+      const concatList = mp3Parts.map((_, ci) => "file '" + tmpDir + '/part_' + ci + ".mp3'").join('\\n');
+      fs.writeFileSync(tmpDir + '/concat.txt', concatList);
+      execSync('ffmpeg -f concat -safe 0 -i ' + tmpDir + '/concat.txt -c copy -y ' + tmpDir + '/audio.mp3', { timeout: 60000 });
+    }
   } else {
-    // ElevenLabs for premium and ultra
-    const voiceId = voiceTier === 'ultra' ? 'pNInz6obpgDQGcFmaJgB' : 'onwK4e9ZLuTAKqWW03F9';
+    // ElevenLabs (ultra) - adam voice
     const mp3Buf = await postBinaryRequest(
-      'https://api.elevenlabs.io/v1/text-to-speech/' + voiceId,
+      'https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB',
       { 'xi-api-key': ELEVENLABS_KEY, 'Content-Type': 'application/json' },
       { text: script, model_id: 'eleven_multilingual_v2', voice_settings: { stability: 0.75, similarity_boost: 0.75, style: 0.35, use_speaker_boost: true } }
     );
