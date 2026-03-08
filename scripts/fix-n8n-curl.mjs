@@ -277,21 +277,37 @@ try {
   fs.mkdirSync(tmpDir, { recursive: true });
   const prompt = 'YouTube thumbnail for: ' + topic + '. ' + (style ? 'Style: ' + style + '. ' : '') + 'Eye-catching, bold, high contrast, professional YouTube thumbnail, 16:9 aspect ratio, vibrant colors, clear focal point, cinematic quality.';
 
-  // All tiers use Gemini image generation (no fal.ai)
-  const rawResp = await postBinaryRequest(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=' + GOOGLE_API_KEY,
-    { 'Content-Type': 'application/json' },
-    { contents: [{ parts: [{ text: 'Generate an image: ' + prompt }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }
-  );
-  const resp = JSON.parse(rawResp.toString('utf-8'));
-  let base64 = null;
-  if (resp.candidates && resp.candidates[0] && resp.candidates[0].content && resp.candidates[0].content.parts) {
-    for (const part of resp.candidates[0].content.parts) {
-      if (part.inlineData && part.inlineData.data) { base64 = part.inlineData.data; break; }
+  // Generate thumbnail via Kie.ai Nano Banana 2
+  const createResp = await this.helpers.httpRequest({
+    method: 'POST',
+    url: 'https://api.kie.ai/api/v1/jobs/createTask',
+    headers: { 'Authorization': 'Bearer ' + KIE_API_KEY, 'Content-Type': 'application/json' },
+    body: { model: 'nano-banana-2', input: { prompt: prompt.substring(0, 300), aspect_ratio: '16:9', resolution: '1K', output_format: 'jpg' } },
+    json: true, timeout: 30000
+  });
+  if (!createResp.data || !createResp.data.taskId) throw new Error('Kie.ai returned no taskId');
+  const taskId = createResp.data.taskId;
+
+  // Poll for completion (max 90s)
+  let imageUrl = null;
+  for (let poll = 0; poll < 18; poll++) {
+    await new Promise(r => setTimeout(r, 5000));
+    const statusResp = await this.helpers.httpRequest({
+      method: 'GET',
+      url: 'https://api.kie.ai/api/v1/jobs/recordInfo?taskId=' + taskId,
+      headers: { 'Authorization': 'Bearer ' + KIE_API_KEY },
+      json: true, timeout: 10000
+    });
+    const state = statusResp.data && statusResp.data.state;
+    if (state === 'success') {
+      const result = JSON.parse(statusResp.data.resultJson || '{}');
+      if (result.resultUrls && result.resultUrls[0]) imageUrl = result.resultUrls[0];
+      break;
     }
+    if (state === 'fail') throw new Error('Kie.ai failed: ' + (statusResp.data.failMsg || 'unknown'));
   }
-  if (!base64) throw new Error('Gemini returned no image data');
-  fs.writeFileSync(tmpDir + '/thumb.jpg', Buffer.from(base64, 'base64'));
+  if (!imageUrl) throw new Error('Kie.ai thumbnail timed out after 90s');
+  await downloadFile(imageUrl, tmpDir + '/thumb.jpg');
 
   const imgStat = fs.statSync(tmpDir + '/thumb.jpg');
   if (imgStat.size < 1000) throw new Error('Image too small: ' + imgStat.size + ' bytes');
@@ -416,27 +432,45 @@ try {
     }
   }
 
+  // Generate images via Kie.ai Nano Banana 2
   const uploadedImages = [];
   const imageErrors = [];
   for (let i = 0; i < imagePrompts.length; i++) {
     try {
-      if (i > 0) await new Promise(r => setTimeout(r, 5000));
-      const imgResp = await this.helpers.httpRequest({
+      if (i > 0) await new Promise(r => setTimeout(r, 2000));
+      // Create task
+      const createResp = await this.helpers.httpRequest({
         method: 'POST',
-        url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=' + GOOGLE_API_KEY,
-        headers: { 'Content-Type': 'application/json' },
-        body: { contents: [{ parts: [{ text: 'Generate an image: ' + imagePrompts[i].substring(0, 300) }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } },
-        json: true, timeout: 120000
+        url: 'https://api.kie.ai/api/v1/jobs/createTask',
+        headers: { 'Authorization': 'Bearer ' + KIE_API_KEY, 'Content-Type': 'application/json' },
+        body: { model: 'nano-banana-2', input: { prompt: imagePrompts[i].substring(0, 300), aspect_ratio: '16:9', resolution: '1K', output_format: 'jpg' } },
+        json: true, timeout: 30000
       });
-      let base64 = null;
-      if (imgResp.candidates && imgResp.candidates[0] && imgResp.candidates[0].content) {
-        for (const part of imgResp.candidates[0].content.parts || []) {
-          if (part.inlineData && part.inlineData.data) { base64 = part.inlineData.data; break; }
-        }
-      }
-      if (!base64) { imageErrors.push('img' + i + ':no-base64'); continue; }
-      fs.writeFileSync(tmpDir + '/img_' + i + '.jpg', Buffer.from(base64, 'base64'));
+      if (!createResp.data || !createResp.data.taskId) { imageErrors.push('img' + i + ':no-taskId'); continue; }
+      const taskId = createResp.data.taskId;
 
+      // Poll for completion (max 90s)
+      let imageUrl = null;
+      for (let poll = 0; poll < 18; poll++) {
+        await new Promise(r => setTimeout(r, 5000));
+        const statusResp = await this.helpers.httpRequest({
+          method: 'GET',
+          url: 'https://api.kie.ai/api/v1/jobs/recordInfo?taskId=' + taskId,
+          headers: { 'Authorization': 'Bearer ' + KIE_API_KEY },
+          json: true, timeout: 10000
+        });
+        const state = statusResp.data && statusResp.data.state;
+        if (state === 'success') {
+          const result = JSON.parse(statusResp.data.resultJson || '{}');
+          if (result.resultUrls && result.resultUrls[0]) imageUrl = result.resultUrls[0];
+          break;
+        }
+        if (state === 'fail') { imageErrors.push('img' + i + ':kie-fail:' + (statusResp.data.failMsg || '')); break; }
+      }
+      if (!imageUrl) { if (!imageErrors.some(e => e.startsWith('img' + i))) imageErrors.push('img' + i + ':timeout'); continue; }
+
+      // Download and upload
+      await downloadFile(imageUrl, tmpDir + '/img_' + i + '.jpg');
       const imgPath = tmpDir + '/img_' + i + '.jpg';
       if (fs.existsSync(imgPath) && fs.statSync(imgPath).size > 1000) {
         await uploadToSupabase('images', generationId + '/img_' + i + '.jpg', imgPath, 'image/jpeg');
