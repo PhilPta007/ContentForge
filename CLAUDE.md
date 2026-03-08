@@ -10,8 +10,8 @@ ContentForge is an AI-powered SaaS content creation platform for podcasters and 
 
 - **Frontend:** Next.js 14+ (App Router, Server Components, Server Actions), TypeScript (strict), TailwindCSS v4 (CSS-based config, NOT tailwind.config.ts), Zustand, React Hook Form, Zod, shadcn/ui, Lucide React
 - **Backend:** Supabase (Auth, PostgreSQL, Storage, Edge Functions, Realtime) with RLS always enabled
-- **Payments:** PayFast (South Africa/ZAR) + Stripe (International/USD)
-- **AI Services:** Claude (scripts/descriptions), Kokoro on VPS (standard TTS), Google WaveNet (premium TTS), ElevenLabs (ultra TTS), Kie.ai Nano Banana (standard images), Google Imagen 4.0 (premium/ultra images), Kie.ai VEO3 (AI motion), fal.ai Kling 1.5 (premium motion)
+- **Payments:** PayFast (South Africa/ZAR) + PayPal (International/USD)
+- **AI Services:** Claude (scripts/descriptions), Kokoro on VPS (standard TTS), Google WaveNet (premium TTS), ElevenLabs (ultra TTS), fal.ai Flux (standard/premium/ultra images), Kie.ai VEO3 Fast (AI motion), fal.ai Kling 1.5 (premium motion)
 - **Workflow:** n8n handles heavy AI processing pipelines (script → TTS → images → video assembly)
 - **Hosting:** Vercel (web app), Supabase (DB/auth/storage), VPS (n8n + Kokoro TTS)
 
@@ -37,7 +37,7 @@ Three route groups with separate layouts:
 ### API Routes (src/app/api/)
 
 - `webhooks/payfast/` — PayFast ITN payment notifications
-- `webhooks/stripe/` — Stripe webhook events
+- `webhooks/paypal/capture/` — PayPal payment capture
 - `webhooks/n8n/` — Generation completion callbacks from n8n
 - `generate/{mp3,video,description,thumbnail}/` — Trigger generation jobs
 - `youtube/transcript/` — YouTube transcript fetching (for SEO descriptions)
@@ -92,7 +92,7 @@ Global stores for: user profile, credit balance, shopping cart. Credit balance m
 
 ## Webhook Security
 
-Both PayFast and n8n webhooks require signature/secret verification before processing. PayFast uses MD5 signature with passphrase. n8n uses `X-Webhook-Secret` header. Stripe uses `stripe.webhooks.constructEvent()`.
+Both PayFast and n8n webhooks require signature/secret verification before processing. PayFast uses MD5 signature with passphrase. n8n uses `X-Webhook-Secret` header.
 
 ## Build Phases
 

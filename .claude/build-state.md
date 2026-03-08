@@ -1,61 +1,41 @@
 # Build State
 
-> Last updated: 2026-03-07
-> Auto-saved after: my.sync — n8n workflow fixes + TTS routing
+> Last updated: 2026-03-08
+> Auto-saved after: my.sync — code review fixes
 
 ## Current Session
-- **Feature**: Production fixes — n8n workflow, TTS routing, callback URLs
+- **Feature**: Code review fixes — remove Stripe refs, update providers, fix docs
 - **Phase**: testing
-- **Status**: fixes deployed to n8n, local changes pending Vercel redeploy
+- **Status**: fixes applied, pending Vercel redeploy
 
-## Completed
-### Phases 1-7 — Full Build
-- 110+ source files, 0 TypeScript errors
-- Atomic credit operations via PostgreSQL RPCs (add_credits, deduct_credits)
+## Completed This Session
+- Removed all Stripe references from progress.md, CLAUDE.md, .env.local.example
+- Replaced Stripe with PayPal in .env.local.example
+- Updated MOTION_PROVIDERS to Kie.ai VEO3 Fast (both ai and premium tiers)
+- Updated CLAUDE.md AI Services to match actual providers (fal.ai Flux images, WaveNet TTS)
+- Added N8N_CALLBACK_URL to .env.local.example
+- Fixed webhook docs in CLAUDE.md (PayPal capture instead of Stripe)
 
-### Payments
-- PayPal REST API (USD) + PayFast (ZAR) — both live credentials
-
-### n8n Workflow Fixes (This Session)
-- Replaced `curl`/`fetch` with Node.js `require('https')` for binary ops in sandbox
-- Fixed Kokoro TTS: port 8765 -> 5099, POST -> GET with query params
-- Fixed premium voice tier: routed to Google Cloud TTS WaveNet (was incorrectly using ElevenLabs)
-- Fixed Gemini image generation: raw HTTP for large base64 responses (~1MB)
-- Added ElevenLabs quota detection with Kokoro fallback
-- All 6 Code nodes patched and pushed via REST API
-
-### Callback & Auth Fixes (This Session)
-- Added N8N_CALLBACK_URL env var (points to production) in all 4 generate routes
-- Fixed webhook secret trailing newline on Vercel
-- Enabled Supabase Realtime publication for generations table
-
-### TTS Tier Mapping (Current)
-| Tier | Provider | Method |
-|------|----------|--------|
-| Standard | Kokoro TTS (self-hosted) | GET :5099/tts?text=...&voice=am_michael |
-| Premium | Google Cloud TTS WaveNet | POST texttospeech.googleapis.com |
-| Ultra | ElevenLabs Multilingual v2 | POST api.elevenlabs.io |
-
-### Production URLs
-- **App**: https://contentforge-sigma.vercel.app
-- **Supabase**: https://vlznzzwxdappfbvjlimo.supabase.co
-- **n8n Webhook**: https://srv1319171.hstgr.cloud/webhook/contentforge-generate
+## Previous Session (carried forward)
+- Fixed n8n Code nodes: require('https') for binary ops
+- Fixed Kokoro TTS: port 5099, GET method
+- Fixed premium voice: Google Cloud TTS WaveNet
+- Fixed callback URL + webhook auth
+- All 6 n8n workflow nodes patched and active
 
 ## Pending
-- End-to-end test all generation types (MP3/video/thumbnail/description)
-- Redeploy to Vercel with callback URL changes
-- Connect Vercel to GitHub for auto-deploy (manual dashboard step)
+- End-to-end test all generation types
+- Redeploy to Vercel with latest changes
+- Connect Vercel to GitHub for auto-deploy
 
 ## Files Modified This Session
-- `.env.local` — KOKORO_ENDPOINT port fix, N8N_CALLBACK_URL added
-- `src/app/api/generate/mp3/route.ts` — N8N_CALLBACK_URL
-- `src/app/api/generate/video/route.ts` — N8N_CALLBACK_URL
-- `src/app/api/generate/thumbnail/route.ts` — N8N_CALLBACK_URL
-- `src/app/api/generate/description/route.ts` — N8N_CALLBACK_URL
-- `scripts/fix-n8n-curl.mjs` — n8n workflow patcher (created, iterated 5x)
+- `.env.local.example` — Stripe removed, PayPal added, N8N_CALLBACK_URL added
+- `CLAUDE.md` — AI Services, Payments, Webhook sections updated
+- `progress.md` — Stripe references removed
+- `src/lib/providers.ts` — MOTION_PROVIDERS → Kie.ai VEO3 Fast
 
 ## Last Action
-Fixed premium voice tier to use Google Cloud TTS WaveNet. Pushed n8n workflow update.
+Updated MOTION_PROVIDERS premium tier to Kie.ai VEO3 Fast (matching ai tier).
 
 ## Resume Instructions
-Run end-to-end tests for all generation types. Redeploy to Vercel after confirming locally.
+Redeploy to Vercel. Run end-to-end tests for all generation types.

@@ -50,12 +50,12 @@
 
 ### Payment Libraries
 - [x] `src/lib/payfast.ts` -- PayFast signature generation (MD5) and checkout URL creation
-- [x] `src/lib/stripe.ts` -- Stripe checkout session creation with metadata
+
 - [x] `src/lib/credits-service.ts` -- Server-side credit ops: addCredits, deductCredits, getBalance, getTransactions (uses service role key)
 
 ### API Routes
 - [x] `src/app/api/webhooks/payfast/route.ts` -- PayFast ITN handler: signature verification, payment_status check, credit allocation
-- [x] `src/app/api/webhooks/stripe/route.ts` -- Stripe webhook: constructEvent verification, checkout.session.completed handling
+
 - [x] `src/app/api/credits/purchase/route.ts` -- POST endpoint: auth check, pack lookup, PayFast/Stripe URL generation
 
 ### Credit Components

@@ -49,14 +49,14 @@ export const IMAGE_PROVIDERS: Record<ImageTier, ProviderConfig> = {
 export const MOTION_PROVIDERS: Record<MotionTier, ProviderConfig | null> = {
   static: null,
   ai: {
-    provider: 'Fal AI',
-    model: 'fal-ai/kling-video/v1/standard/image-to-video',
-    endpoint: '/api/motion/fal',
+    provider: 'Kie.ai',
+    model: 'veo3_fast',
+    endpoint: 'https://api.kie.ai/api/v1/veo/generate',
   },
   premium: {
-    provider: 'Fal AI',
-    model: 'fal-ai/kling-video/v1.5/pro/image-to-video',
-    endpoint: '/api/motion/fal',
+    provider: 'Kie.ai',
+    model: 'veo3_fast',
+    endpoint: 'https://api.kie.ai/api/v1/veo/generate',
   },
 } as const;
 
