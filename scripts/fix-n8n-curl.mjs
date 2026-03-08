@@ -421,12 +421,13 @@ try {
   for (let i = 0; i < imagePrompts.length; i++) {
     try {
       if (i > 0) await new Promise(r => setTimeout(r, 5000));
-      const imgRaw = await postBinaryRequest(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=' + GOOGLE_API_KEY,
-        { 'Content-Type': 'application/json' },
-        { contents: [{ parts: [{ text: 'Generate an image: ' + imagePrompts[i].substring(0, 300) }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }
-      );
-      const imgResp = JSON.parse(imgRaw.toString('utf-8'));
+      const imgResp = await this.helpers.httpRequest({
+        method: 'POST',
+        url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=' + GOOGLE_API_KEY,
+        headers: { 'Content-Type': 'application/json' },
+        body: { contents: [{ parts: [{ text: 'Generate an image: ' + imagePrompts[i].substring(0, 300) }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } },
+        json: true, timeout: 120000
+      });
       let base64 = null;
       if (imgResp.candidates && imgResp.candidates[0] && imgResp.candidates[0].content) {
         for (const part of imgResp.candidates[0].content.parts || []) {
@@ -441,10 +442,10 @@ try {
         await uploadToSupabase('images', generationId + '/img_' + i + '.jpg', imgPath, 'image/jpeg');
         uploadedImages.push({ index: i, url: SUPABASE_URL + '/storage/v1/object/public/images/' + generationId + '/img_' + i + '.jpg' });
       }
-    } catch (imgErr) { imageErrors.push('img' + i + ':' + imgErr.message.substring(0, 100)); }
+    } catch (imgErr) { imageErrors.push('img' + i + ':' + (imgErr.message || String(imgErr)).substring(0, 150)); }
   }
 
-  if (uploadedImages.length === 0) throw new Error('No images generated. Errors: ' + imageErrors.join(' | '));
+  if (uploadedImages.length === 0) throw new Error('Images failed: ' + imageErrors.join(' | '));
   return [{ json: { generationId, callbackUrl, script, topic, duration, uploadedImages, tmpDir } }];
 } catch (e) {
   try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_e) {}
