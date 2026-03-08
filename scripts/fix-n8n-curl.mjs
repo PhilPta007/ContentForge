@@ -181,9 +181,14 @@ async function generateVEO3Clip(helpers, kieKey, imageUrl, prompt, maxWaitMs) {
 
     const state = statusResp.data && statusResp.data.state;
     if (state === 'success') {
-      const result = JSON.parse(statusResp.data.resultJson || '{}');
+      const rawResult = statusResp.data.resultJson;
+      if (!rawResult || rawResult === 'null') {
+        throw new Error('VEO3 success but resultJson is empty: ' + JSON.stringify(statusResp.data).substring(0, 300));
+      }
+      const result = typeof rawResult === 'string' ? JSON.parse(rawResult) : rawResult;
       if (result.videoUrl) return result.videoUrl;
-      throw new Error('VEO3 success but no videoUrl in result');
+      if (result.resultUrls && result.resultUrls[0]) return result.resultUrls[0];
+      throw new Error('VEO3 success but no videoUrl: ' + JSON.stringify(result).substring(0, 300));
     }
     if (state === 'fail') {
       throw new Error('VEO3 failed: ' + (statusResp.data.failMsg || 'unknown'));
