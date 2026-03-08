@@ -15,6 +15,7 @@ const bodySchema = z.object({
     'documentary', 'educational', 'podcast', 'youtube_hype',
   ]),
   voiceTier: z.enum(['standard', 'premium', 'ultra']),
+  customScript: z.string().min(50).max(50000).optional(),
 });
 
 export async function POST(request: Request) {
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { topic, duration, tone, voiceTier } = parsed.data;
+    const { topic, duration, tone, voiceTier, customScript } = parsed.data;
 
     const config: GenerationConfig = { type: 'mp3', duration, tone, voiceTier };
     const creditsNeeded = calculateCredits(config);
@@ -91,6 +92,7 @@ export async function POST(request: Request) {
       tone,
       voiceTier,
       callbackUrl,
+      ...(customScript && { customScript }),
     }).catch(async () => {
       await admin
         .from('generations')

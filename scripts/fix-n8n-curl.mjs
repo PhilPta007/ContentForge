@@ -9,11 +9,11 @@ const N8N_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjODYxNGNmZi1iNG
 const N8N_URL = 'https://srv1319171.hstgr.cloud';
 const WORKFLOW_ID = 'JRKIyos4VFfmWw1D';
 
-const CONSTANTS = `const GOOGLE_API_KEY = 'AIzaSyAymEyIzPiij-MBZt3rekfeNhIN5SYZgx0';
+const CONSTANTS = `const GOOGLE_API_KEY = 'AIzaSyDSU3Gun4O0jm-thJIaz1jGXqIlGXQ9kh4';
 const ELEVENLABS_KEY = 'sk_a44c76e0ce63277fe0eafc06a43d3cf45d427f8e17a26a93';
 const KOKORO_URL = 'http://31.97.118.216:5099';
 const KOKORO_KEY = 'deef1f92bbfd2267e7882c7125e5e8b7';
-const FAL_KEY = 'b4971ef9-9e4c-4bb5-81d4-5ef0d52a6b7b:b0b3e127578c49a830402a000630b873';
+const KIE_API_KEY = 'b3b5068ddf93b2d69185f5dfa793e7eb';
 const SUPABASE_URL = 'https://vlznzzwxdappfbvjlimo.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZsem56end4ZGFwcGZidmpsaW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTcyNDQxMCwiZXhwIjoyMDg3MzAwNDEwfQ.XoBMZbHvw2lSuQjlArChGy1OBJg9SeFbU5eI4WMVWFE';
 const CB_SECRET = 'contentforge-n8n-webhook-2026';`;
@@ -114,79 +114,48 @@ ${BINARY_HELPERS}
 const fs = require('fs');
 const { execSync } = require('child_process');
 const data = $('Webhook').first().json.body;
-const { generationId, topic, duration, tone, voiceTier, callbackUrl } = data;
+const { generationId, topic, duration, tone, voiceTier, callbackUrl, customScript } = data;
 const tmpDir = '/tmp/cf_' + generationId;
 
 try {
   fs.mkdirSync(tmpDir, { recursive: true });
 
-  const toneMap = {
-    sleep: 'soothing, calming sleep narration with peaceful imagery',
-    asmr: 'gentle ASMR-style whisper script with soft, intimate delivery',
-    bedtime_story: 'soothing bedtime story for adults with gentle pacing',
-    storytelling: 'engaging narrative story with vivid details',
-    documentary: 'authoritative documentary-style narration',
-    educational: 'clear educational lecture with good structure',
-    podcast: 'natural conversational podcast monologue',
-    youtube_hype: 'energetic, enthusiastic YouTube video script'
-  };
-  const prompt = 'Write a ' + (toneMap[tone] || 'script') + ' about: ' + topic + '. It should be approximately ' + duration + ' minutes when read aloud (roughly ' + (duration * 150) + ' words). Write only the narration text. No headings, titles, stage directions, or metadata. Just the spoken words.';
+  // Script: use custom if provided, else generate with Gemini
+  let script;
+  if (customScript && customScript.length >= 50) {
+    script = customScript;
+  } else {
+    const toneMap = {
+      sleep: 'soothing, calming sleep narration with peaceful imagery',
+      asmr: 'gentle ASMR-style whisper script with soft, intimate delivery',
+      bedtime_story: 'soothing bedtime story for adults with gentle pacing',
+      storytelling: 'engaging narrative story with vivid details',
+      documentary: 'authoritative documentary-style narration',
+      educational: 'clear educational lecture with good structure',
+      podcast: 'natural conversational podcast monologue',
+      youtube_hype: 'energetic, enthusiastic YouTube video script'
+    };
+    const prompt = 'Write a ' + (toneMap[tone] || 'script') + ' about: ' + topic + '. It should be approximately ' + duration + ' minutes when read aloud (roughly ' + (duration * 150) + ' words). Write only the narration text. No headings, titles, stage directions, or metadata. Just the spoken words.';
+    const geminiResp = await this.helpers.httpRequest({
+      method: 'POST',
+      url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + GOOGLE_API_KEY,
+      headers: { 'Content-Type': 'application/json' },
+      body: { contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 8192 } },
+      json: true, timeout: 60000
+    });
+    script = geminiResp.candidates[0].content.parts[0].text;
+  }
 
-  const geminiResp = await this.helpers.httpRequest({
-    method: 'POST',
-    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + GOOGLE_API_KEY,
-    headers: { 'Content-Type': 'application/json' },
-    body: { contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 8192 } },
-    json: true, timeout: 60000
-  });
-  const script = geminiResp.candidates[0].content.parts[0].text;
-
-  // TTS - standard=Kokoro, premium=Google WaveNet, ultra=ElevenLabs
+  // TTS - standard=Kokoro, premium=ElevenLabs(daniel), ultra=ElevenLabs(adam)
   if (voiceTier === 'standard') {
-    // Kokoro TTS (GET /tts?text=...&voice=...)
     const kokoroUrl = KOKORO_URL + '/tts?text=' + encodeURIComponent(script) + '&voice=am_michael';
     const wavBuf = await httpBinaryRequest(kokoroUrl, { method: 'GET', timeout: 300000 });
     fs.writeFileSync(tmpDir + '/audio.wav', wavBuf);
     if (wavBuf.length < 1000) throw new Error('Kokoro returned empty audio (' + wavBuf.length + ' bytes)');
     execSync('ffmpeg -i ' + tmpDir + '/audio.wav -codec:a libmp3lame -b:a 128k -y ' + tmpDir + '/audio.mp3', { timeout: 120000 });
-  } else if (voiceTier === 'premium') {
-    // Google Cloud TTS WaveNet - split into chunks of 5000 bytes max
-    const maxChunk = 4500;
-    const chunks = [];
-    let remaining = script;
-    while (remaining.length > 0) {
-      if (remaining.length <= maxChunk) { chunks.push(remaining); break; }
-      let splitAt = remaining.lastIndexOf('. ', maxChunk);
-      if (splitAt < maxChunk * 0.5) splitAt = remaining.lastIndexOf(' ', maxChunk);
-      if (splitAt < 1) splitAt = maxChunk;
-      chunks.push(remaining.substring(0, splitAt + 1));
-      remaining = remaining.substring(splitAt + 1).trimStart();
-    }
-    const mp3Parts = [];
-    for (let ci = 0; ci < chunks.length; ci++) {
-      const ttsBody = { input: { text: chunks[ci] }, voice: { languageCode: 'en-US', name: 'en-US-Wavenet-D' }, audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0 } };
-      const ttsRaw = await postBinaryRequest(
-        'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_API_KEY,
-        { 'Content-Type': 'application/json' },
-        ttsBody
-      );
-      const ttsResp = JSON.parse(ttsRaw.toString('utf-8'));
-      if (!ttsResp.audioContent) throw new Error('Google TTS returned no audio for chunk ' + ci);
-      mp3Parts.push(Buffer.from(ttsResp.audioContent, 'base64'));
-    }
-    if (mp3Parts.length === 1) {
-      fs.writeFileSync(tmpDir + '/audio.mp3', mp3Parts[0]);
-    } else {
-      for (let ci = 0; ci < mp3Parts.length; ci++) {
-        fs.writeFileSync(tmpDir + '/part_' + ci + '.mp3', mp3Parts[ci]);
-      }
-      const concatList = mp3Parts.map((_, ci) => "file '" + tmpDir + '/part_' + ci + ".mp3'").join('\\n');
-      fs.writeFileSync(tmpDir + '/concat.txt', concatList);
-      execSync('ffmpeg -f concat -safe 0 -i ' + tmpDir + '/concat.txt -c copy -y ' + tmpDir + '/audio.mp3', { timeout: 60000 });
-    }
   } else {
-    // ElevenLabs (ultra)
-    const voiceId = 'pNInz6obpgDQGcFmaJgB';
+    // ElevenLabs for premium and ultra
+    const voiceId = voiceTier === 'ultra' ? 'pNInz6obpgDQGcFmaJgB' : 'onwK4e9ZLuTAKqWW03F9';
     const mp3Buf = await postBinaryRequest(
       'https://api.elevenlabs.io/v1/text-to-speech/' + voiceId,
       { 'xi-api-key': ELEVENLABS_KEY, 'Content-Type': 'application/json' },
@@ -274,32 +243,21 @@ try {
   fs.mkdirSync(tmpDir, { recursive: true });
   const prompt = 'YouTube thumbnail for: ' + topic + '. ' + (style ? 'Style: ' + style + '. ' : '') + 'Eye-catching, bold, high contrast, professional YouTube thumbnail, 16:9 aspect ratio, vibrant colors, clear focal point, cinematic quality.';
 
-  if (imageTier === 'standard') {
-    const rawResp = await postBinaryRequest(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=' + GOOGLE_API_KEY,
-      { 'Content-Type': 'application/json' },
-      { contents: [{ parts: [{ text: 'Generate an image: ' + prompt }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }
-    );
-    const resp = JSON.parse(rawResp.toString('utf-8'));
-    let base64 = null;
-    if (resp.candidates && resp.candidates[0] && resp.candidates[0].content && resp.candidates[0].content.parts) {
-      for (const part of resp.candidates[0].content.parts) {
-        if (part.inlineData && part.inlineData.data) { base64 = part.inlineData.data; break; }
-      }
+  // All tiers use Gemini image generation (no fal.ai)
+  const rawResp = await postBinaryRequest(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=' + GOOGLE_API_KEY,
+    { 'Content-Type': 'application/json' },
+    { contents: [{ parts: [{ text: 'Generate an image: ' + prompt }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }
+  );
+  const resp = JSON.parse(rawResp.toString('utf-8'));
+  let base64 = null;
+  if (resp.candidates && resp.candidates[0] && resp.candidates[0].content && resp.candidates[0].content.parts) {
+    for (const part of resp.candidates[0].content.parts) {
+      if (part.inlineData && part.inlineData.data) { base64 = part.inlineData.data; break; }
     }
-    if (!base64) throw new Error('Gemini returned no image data');
-    fs.writeFileSync(tmpDir + '/thumb.jpg', Buffer.from(base64, 'base64'));
-  } else {
-    const model = imageTier === 'ultra' ? 'fal-ai/flux-pro/v1.1' : 'fal-ai/flux/schnell';
-    const falRaw = await postBinaryRequest(
-      'https://fal.run/' + model,
-      { 'Content-Type': 'application/json', 'Authorization': 'Key ' + FAL_KEY },
-      { prompt: prompt, image_size: { width: 1280, height: 720 }, num_images: 1 }
-    );
-    const resp = JSON.parse(falRaw.toString('utf-8'));
-    if (!resp.images || !resp.images[0] || !resp.images[0].url) throw new Error('Fal AI returned no image');
-    await downloadFile(resp.images[0].url, tmpDir + '/thumb.jpg');
   }
+  if (!base64) throw new Error('Gemini returned no image data');
+  fs.writeFileSync(tmpDir + '/thumb.jpg', Buffer.from(base64, 'base64'));
 
   const imgStat = fs.statSync(tmpDir + '/thumb.jpg');
   if (imgStat.size < 1000) throw new Error('Image too small: ' + imgStat.size + ' bytes');
@@ -324,75 +282,45 @@ ${BINARY_HELPERS}
 const fs = require('fs');
 const { execSync } = require('child_process');
 const data = $('Webhook').first().json.body;
-const { generationId, topic, duration, tone, voiceTier, imageTier, sceneCount, callbackUrl } = data;
+const { generationId, topic, duration, tone, voiceTier, imageTier, sceneCount, callbackUrl, customScript } = data;
 const tmpDir = '/tmp/cf_' + generationId;
 
 try {
   fs.mkdirSync(tmpDir, { recursive: true });
 
-  const toneMap = {
-    sleep: 'soothing, calming sleep narration', asmr: 'gentle ASMR whisper script',
-    bedtime_story: 'soothing bedtime story', storytelling: 'engaging narrative',
-    documentary: 'documentary narration', educational: 'educational lecture',
-    podcast: 'conversational podcast', youtube_hype: 'energetic YouTube script'
-  };
-
-  const scriptPrompt = 'Write a ' + (toneMap[tone] || 'script') + ' about: ' + topic + '. Approximately ' + duration + ' minutes when read aloud (~' + (duration * 150) + ' words). Structure with clear sections separated by --- markers. Each section 2-3 paragraphs. No headings or metadata, just narration text with --- between sections.';
-
-  const scriptResp = await this.helpers.httpRequest({
-    method: 'POST',
-    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + GOOGLE_API_KEY,
-    headers: { 'Content-Type': 'application/json' },
-    body: { contents: [{ parts: [{ text: scriptPrompt }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 8192 } },
-    json: true, timeout: 60000
-  });
-  const script = scriptResp.candidates[0].content.parts[0].text;
+  // Script: use custom if provided, else generate with Gemini
+  let script;
+  if (customScript && customScript.length >= 50) {
+    script = customScript;
+  } else {
+    const toneMap = {
+      sleep: 'soothing, calming sleep narration', asmr: 'gentle ASMR whisper script',
+      bedtime_story: 'soothing bedtime story', storytelling: 'engaging narrative',
+      documentary: 'documentary narration', educational: 'educational lecture',
+      podcast: 'conversational podcast', youtube_hype: 'energetic YouTube script'
+    };
+    const scriptPrompt = 'Write a ' + (toneMap[tone] || 'script') + ' about: ' + topic + '. Approximately ' + duration + ' minutes when read aloud (~' + (duration * 150) + ' words). Structure with clear sections separated by --- markers. Each section 2-3 paragraphs. No headings or metadata, just narration text with --- between sections.';
+    const scriptResp = await this.helpers.httpRequest({
+      method: 'POST',
+      url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + GOOGLE_API_KEY,
+      headers: { 'Content-Type': 'application/json' },
+      body: { contents: [{ parts: [{ text: scriptPrompt }] }], generationConfig: { temperature: 0.8, maxOutputTokens: 8192 } },
+      json: true, timeout: 60000
+    });
+    script = scriptResp.candidates[0].content.parts[0].text;
+  }
   const sections = script.split(/---+/).map(s => s.trim()).filter(s => s.length > 0);
 
-  // TTS - standard=Kokoro, premium=Google WaveNet, ultra=ElevenLabs
+  // TTS - standard=Kokoro, premium=ElevenLabs(daniel), ultra=ElevenLabs(adam)
   if (voiceTier === 'standard') {
     const kokoroUrl = KOKORO_URL + '/tts?text=' + encodeURIComponent(script) + '&voice=am_michael';
     const wavBuf = await httpBinaryRequest(kokoroUrl, { method: 'GET', timeout: 300000 });
     fs.writeFileSync(tmpDir + '/audio.wav', wavBuf);
+    if (wavBuf.length < 1000) throw new Error('Kokoro returned empty audio (' + wavBuf.length + ' bytes)');
     execSync('ffmpeg -i ' + tmpDir + '/audio.wav -codec:a libmp3lame -b:a 128k -y ' + tmpDir + '/audio.mp3', { timeout: 120000 });
-  } else if (voiceTier === 'premium') {
-    // Google Cloud TTS WaveNet
-    const maxChunk = 4500;
-    const chunks = [];
-    let remaining = script;
-    while (remaining.length > 0) {
-      if (remaining.length <= maxChunk) { chunks.push(remaining); break; }
-      let splitAt = remaining.lastIndexOf('. ', maxChunk);
-      if (splitAt < maxChunk * 0.5) splitAt = remaining.lastIndexOf(' ', maxChunk);
-      if (splitAt < 1) splitAt = maxChunk;
-      chunks.push(remaining.substring(0, splitAt + 1));
-      remaining = remaining.substring(splitAt + 1).trimStart();
-    }
-    const mp3Parts = [];
-    for (let ci = 0; ci < chunks.length; ci++) {
-      const ttsBody = { input: { text: chunks[ci] }, voice: { languageCode: 'en-US', name: 'en-US-Wavenet-D' }, audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0 } };
-      const ttsRaw = await postBinaryRequest(
-        'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_API_KEY,
-        { 'Content-Type': 'application/json' },
-        ttsBody
-      );
-      const ttsResp = JSON.parse(ttsRaw.toString('utf-8'));
-      if (!ttsResp.audioContent) throw new Error('Google TTS returned no audio for chunk ' + ci);
-      mp3Parts.push(Buffer.from(ttsResp.audioContent, 'base64'));
-    }
-    if (mp3Parts.length === 1) {
-      fs.writeFileSync(tmpDir + '/audio.mp3', mp3Parts[0]);
-    } else {
-      for (let ci = 0; ci < mp3Parts.length; ci++) {
-        fs.writeFileSync(tmpDir + '/part_' + ci + '.mp3', mp3Parts[ci]);
-      }
-      const concatList = mp3Parts.map((_, ci) => "file '" + tmpDir + '/part_' + ci + ".mp3'").join('\\n');
-      fs.writeFileSync(tmpDir + '/concat.txt', concatList);
-      execSync('ffmpeg -f concat -safe 0 -i ' + tmpDir + '/concat.txt -c copy -y ' + tmpDir + '/audio.mp3', { timeout: 60000 });
-    }
   } else {
-    // ElevenLabs (ultra)
-    const voiceId = 'pNInz6obpgDQGcFmaJgB';
+    // ElevenLabs for premium and ultra
+    const voiceId = voiceTier === 'ultra' ? 'pNInz6obpgDQGcFmaJgB' : 'onwK4e9ZLuTAKqWW03F9';
     const mp3Buf = await postBinaryRequest(
       'https://api.elevenlabs.io/v1/text-to-speech/' + voiceId,
       { 'xi-api-key': ELEVENLABS_KEY, 'Content-Type': 'application/json' },
@@ -401,9 +329,11 @@ try {
     fs.writeFileSync(tmpDir + '/audio.mp3', mp3Buf);
   }
 
+  const audioStat = fs.statSync(tmpDir + '/audio.mp3');
+  if (audioStat.size < 1000) throw new Error('Audio file too small: ' + audioStat.size + ' bytes');
   await uploadToSupabase('audio', generationId + '.mp3', tmpDir + '/audio.mp3', 'audio/mpeg');
 
-  // Generate images
+  // Generate images - all tiers use Gemini image generation (no fal.ai)
   const targetImages = sceneCount || Math.max(3, Math.ceil((duration * 60) / 30));
   const totalWords = sections.reduce((sum, s) => sum + s.split(/\\s+/).length, 0);
   const imagePrompts = [];
@@ -422,41 +352,27 @@ try {
   for (let i = 0; i < imagePrompts.length; i++) {
     try {
       if (i > 0) await new Promise(r => setTimeout(r, 3000));
-
-      if (!imageTier || imageTier === 'standard') {
-        // Use raw HTTP to handle large base64 responses
-        const imgRaw = await postBinaryRequest(
-          'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=' + GOOGLE_API_KEY,
-          { 'Content-Type': 'application/json' },
-          { contents: [{ parts: [{ text: 'Generate an image: ' + imagePrompts[i] }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }
-        );
-        const imgResp = JSON.parse(imgRaw.toString('utf-8'));
-        let base64 = null;
-        if (imgResp.candidates && imgResp.candidates[0] && imgResp.candidates[0].content) {
-          for (const part of imgResp.candidates[0].content.parts || []) {
-            if (part.inlineData && part.inlineData.data) { base64 = part.inlineData.data; break; }
-          }
+      const imgRaw = await postBinaryRequest(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=' + GOOGLE_API_KEY,
+        { 'Content-Type': 'application/json' },
+        { contents: [{ parts: [{ text: 'Generate an image: ' + imagePrompts[i] }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }
+      );
+      const imgResp = JSON.parse(imgRaw.toString('utf-8'));
+      let base64 = null;
+      if (imgResp.candidates && imgResp.candidates[0] && imgResp.candidates[0].content) {
+        for (const part of imgResp.candidates[0].content.parts || []) {
+          if (part.inlineData && part.inlineData.data) { base64 = part.inlineData.data; break; }
         }
-        if (!base64) { continue; }
-        fs.writeFileSync(tmpDir + '/img_' + i + '.jpg', Buffer.from(base64, 'base64'));
-      } else {
-        const model = imageTier === 'ultra' ? 'fal-ai/flux-pro/v1.1' : 'fal-ai/flux/schnell';
-        const falRaw = await postBinaryRequest(
-          'https://fal.run/' + model,
-          { 'Content-Type': 'application/json', 'Authorization': 'Key ' + FAL_KEY },
-          { prompt: imagePrompts[i], image_size: { width: 1280, height: 720 }, num_images: 1 }
-        );
-        const imgResp = JSON.parse(falRaw.toString('utf-8'));
-        if (!imgResp.images || !imgResp.images[0]) { continue; }
-        await downloadFile(imgResp.images[0].url, tmpDir + '/img_' + i + '.jpg');
       }
+      if (!base64) { continue; }
+      fs.writeFileSync(tmpDir + '/img_' + i + '.jpg', Buffer.from(base64, 'base64'));
 
       const imgPath = tmpDir + '/img_' + i + '.jpg';
       if (fs.existsSync(imgPath) && fs.statSync(imgPath).size > 1000) {
         await uploadToSupabase('images', generationId + '/img_' + i + '.jpg', imgPath, 'image/jpeg');
         uploadedImages.push({ index: i, url: SUPABASE_URL + '/storage/v1/object/public/images/' + generationId + '/img_' + i + '.jpg' });
       }
-    } catch (imgErr) { /* skip: */ console.log('Image ' + i + ' failed:', imgErr.message); }
+    } catch (imgErr) { console.log('Image ' + i + ' failed:', imgErr.message); }
   }
 
   if (uploadedImages.length === 0) throw new Error('No images were generated successfully');

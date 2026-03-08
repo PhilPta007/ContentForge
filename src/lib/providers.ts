@@ -11,38 +11,38 @@ export const VOICE_PROVIDERS: Record<VoiceTier, ProviderConfig> = {
   standard: {
     provider: 'Kokoro',
     model: 'kokoro-v1',
-    endpoint: '/api/tts/kokoro',
+    endpoint: 'http://31.97.118.216:5099/tts',
     voice: 'af_heart',
   },
   premium: {
     provider: 'ElevenLabs',
     model: 'eleven_multilingual_v2',
-    endpoint: '/api/tts/elevenlabs',
-    voice: 'rachel',
+    endpoint: 'https://api.elevenlabs.io/v1/text-to-speech',
+    voice: 'daniel',
   },
   ultra: {
     provider: 'ElevenLabs',
-    model: 'eleven_turbo_v2_5',
-    endpoint: '/api/tts/elevenlabs',
+    model: 'eleven_multilingual_v2',
+    endpoint: 'https://api.elevenlabs.io/v1/text-to-speech',
     voice: 'adam',
   },
 } as const;
 
 export const IMAGE_PROVIDERS: Record<ImageTier, ProviderConfig> = {
   standard: {
-    provider: 'Fal AI',
-    model: 'fal-ai/flux/schnell',
-    endpoint: '/api/images/fal',
+    provider: 'Kie.ai',
+    model: 'nano-banana',
+    endpoint: 'https://api.kie.ai/api/v1/generate',
   },
   premium: {
-    provider: 'Fal AI',
-    model: 'fal-ai/flux/dev',
-    endpoint: '/api/images/fal',
+    provider: 'Google',
+    model: 'imagen-4.0-generate-001',
+    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:generateImage',
   },
   ultra: {
-    provider: 'Fal AI',
-    model: 'fal-ai/flux-pro/v1.1-ultra',
-    endpoint: '/api/images/fal',
+    provider: 'Google',
+    model: 'imagen-4.0-ultra-generate-001',
+    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-ultra-generate-001:generateImage',
   },
 } as const;
 

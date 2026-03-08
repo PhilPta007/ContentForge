@@ -15,6 +15,7 @@ export interface GenerationPayload {
   youtubeUrl?: string;
   brandVoice?: Record<string, unknown>;
   affiliateLinks?: { label: string; url: string }[];
+  customScript?: string;
 
   callbackUrl: string;
 }

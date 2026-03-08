@@ -18,6 +18,7 @@ const bodySchema = z.object({
   imageTier: z.enum(['standard', 'premium', 'ultra']),
   motionTier: z.enum(['static', 'ai', 'premium']),
   sceneCount: z.number().int().min(1).max(100),
+  customScript: z.string().min(50).max(50000).optional(),
 });
 
 export async function POST(request: Request) {
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { topic, duration, tone, voiceTier, imageTier, motionTier, sceneCount } = parsed.data;
+    const { topic, duration, tone, voiceTier, imageTier, motionTier, sceneCount, customScript } = parsed.data;
 
     const config: GenerationConfig = {
       type: 'video',
@@ -105,6 +106,7 @@ export async function POST(request: Request) {
       motionTier,
       sceneCount,
       callbackUrl,
+      ...(customScript && { customScript }),
     }).catch(async () => {
       await admin
         .from('generations')

@@ -16,7 +16,7 @@ const IMAGE_OPTIONS = [
   {
     id: 'standard',
     name: 'Standard',
-    description: 'Nano Banana',
+    description: 'Kie.ai Nano',
     creditsPerUnit: IMAGE_CREDITS.standard,
   },
   {
