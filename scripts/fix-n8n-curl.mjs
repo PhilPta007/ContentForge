@@ -522,13 +522,20 @@ try {
     const clipPath = tmpDir + '/clip_' + String(i).padStart(3, '0') + '.mp4';
     const frames = Math.ceil(perImageDuration * FPS);
     const fadeOut = Math.max(0, perImageDuration - 0.5);
-    execSync('ffmpeg -loop 1 -i ' + downloadedImages[i] + ' -vf "zoompan=z=' + "'min(zoom+0.0015,1.5)'" + ':d=' + frames + ":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1280x720:fps=" + FPS + ",fade=t=in:st=0:d=0.5,fade=t=out:st=" + fadeOut + ':d=0.5" -t ' + perImageDuration + ' -c:v libx264 -preset ultrafast -crf 23 -pix_fmt yuv420p -y ' + clipPath, { timeout: 600000 });
+    execSync('ffmpeg -loop 1 -i ' + downloadedImages[i] + ' -vf "zoompan=z=' + "'min(zoom+0.0015,1.5)'" + ':d=' + frames + ":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=960x540:fps=" + FPS + ",fade=t=in:st=0:d=0.5,fade=t=out:st=" + fadeOut + ':d=0.5" -t ' + perImageDuration + ' -c:v libx264 -preset medium -crf 28 -pix_fmt yuv420p -y ' + clipPath, { timeout: 600000 });
     clipFiles.push(clipPath);
   }
 
   fs.writeFileSync(tmpDir + '/concat.txt', clipFiles.map(f => "file '" + f + "'").join('\\n'));
   execSync('ffmpeg -f concat -safe 0 -i ' + tmpDir + '/concat.txt -c copy ' + tmpDir + '/video_only.mp4', { timeout: 600000 });
-  execSync('ffmpeg -i ' + tmpDir + '/video_only.mp4 -i ' + tmpDir + '/audio.mp3 -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 -y ' + tmpDir + '/final.mp4', { timeout: 600000 });
+  execSync('ffmpeg -i ' + tmpDir + '/video_only.mp4 -i ' + tmpDir + '/audio.mp3 -c:v copy -c:a aac -b:a 128k -map 0:v:0 -map 1:a:0 -y ' + tmpDir + '/final.mp4', { timeout: 600000 });
+
+  // Re-encode if over 45MB (Supabase 50MB limit)
+  const finalSize = fs.statSync(tmpDir + '/final.mp4').size;
+  if (finalSize > 45 * 1024 * 1024) {
+    execSync('ffmpeg -i ' + tmpDir + '/final.mp4 -c:v libx264 -preset medium -crf 32 -c:a aac -b:a 96k -y ' + tmpDir + '/final_small.mp4', { timeout: 600000 });
+    fs.renameSync(tmpDir + '/final_small.mp4', tmpDir + '/final.mp4');
+  }
   execSync('ffmpeg -i ' + tmpDir + '/final.mp4 -vframes 1 -q:v 2 -y ' + tmpDir + '/thumbnail.jpg', { timeout: 30000 });
 
   await uploadToSupabase('video', generationId + '.mp4', tmpDir + '/final.mp4', 'video/mp4');
