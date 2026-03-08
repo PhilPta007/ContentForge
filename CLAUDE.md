@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ContentForge is an AI-powered SaaS content creation platform for podcasters and YouTube creators. Users buy credit packs (no subscriptions) and spend credits to generate MP3 podcasts, YouTube videos, SEO descriptions, and thumbnails. The key differentiator is **creator choice** — users select quality tiers (Standard/Premium/Ultra) for each component (voice, images, motion), trading cost vs quality.
+StudioStack is an AI-powered SaaS content creation platform for podcasters and YouTube creators. Users buy credit packs (no subscriptions) and spend credits to generate MP3 podcasts, YouTube videos, SEO descriptions, and thumbnails. The key differentiator is **creator choice** — users select quality tiers (Standard/Premium/Ultra) for each component (voice, images, motion), trading cost vs quality.
 
 ## Tech Stack
 
@@ -96,7 +96,7 @@ Both PayFast and n8n webhooks require signature/secret verification before proce
 
 ## Build Phases
 
-The project spec defines 7 phases: Foundation → Credits → Generation → Library → Settings → Polish → Legal/Launch. See `CONTENTFORGE-BUILD-PROMPT (2).md` for the complete build spec and `PRICING-MODEL.md` for detailed margin analysis.
+The project spec defines 7 phases: Foundation → Credits → Generation → Library → Settings → Polish → Legal/Launch. See `STUDIOSTACK-BUILD-PROMPT (2).md` for the complete build spec and `PRICING-MODEL.md` for detailed margin analysis.
 
 ## Coding Conventions
 

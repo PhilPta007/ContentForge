@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — ContentForge',
+  title: 'Privacy Policy — StudioStack',
 };
 
 export default function PrivacyPolicyPage() {
@@ -14,11 +14,11 @@ export default function PrivacyPolicyPage() {
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-white">1. Introduction</h2>
           <p className="text-neutral-300 leading-relaxed">
-            ContentForge (Pty) Ltd (&quot;ContentForge&quot;, &quot;we&quot;,
+            StudioStack (Pty) Ltd (&quot;StudioStack&quot;, &quot;we&quot;,
             &quot;us&quot;, or &quot;our&quot;) is committed to protecting your
             privacy and personal information. This Privacy Policy explains how
             we collect, use, store, and share your information when you use the
-            ContentForge platform (&quot;the Platform&quot;).
+            StudioStack platform (&quot;the Platform&quot;).
           </p>
           <p className="text-neutral-300 leading-relaxed">
             This policy applies to all users of the Platform and is compliant
@@ -224,10 +224,10 @@ export default function PrivacyPolicyPage() {
           <p className="text-neutral-300 leading-relaxed">
             To exercise any of these rights, please contact us at{' '}
             <a
-              href="mailto:privacy@contentforge.com"
+              href="mailto:privacy@studiostack.com"
               className="text-white underline underline-offset-4 hover:text-neutral-300 transition-colors"
             >
-              privacy@contentforge.com
+              privacy@studiostack.com
             </a>
             . We will respond to your request within a reasonable timeframe
             and in accordance with POPIA requirements.
@@ -252,10 +252,10 @@ export default function PrivacyPolicyPage() {
             <li>
               <strong className="text-white">Email:</strong>{' '}
               <a
-                href="mailto:privacy@contentforge.com"
+                href="mailto:privacy@studiostack.com"
                 className="text-white underline underline-offset-4 hover:text-neutral-300 transition-colors"
               >
-                privacy@contentforge.com
+                privacy@studiostack.com
               </a>
             </li>
           </ul>
@@ -345,10 +345,10 @@ export default function PrivacyPolicyPage() {
             Privacy Policy or the handling of your personal information, please
             contact us at{' '}
             <a
-              href="mailto:privacy@contentforge.com"
+              href="mailto:privacy@studiostack.com"
               className="text-white underline underline-offset-4 hover:text-neutral-300 transition-colors"
             >
-              privacy@contentforge.com
+              privacy@studiostack.com
             </a>
             .
           </p>

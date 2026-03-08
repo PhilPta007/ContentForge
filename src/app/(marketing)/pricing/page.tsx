@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/table';
 
 export const metadata: Metadata = {
-  title: 'Pricing — ContentForge',
+  title: 'Pricing — StudioStack',
   description:
     'Credit packs for AI content creation. Buy once, use anytime. No subscriptions.',
 };
@@ -67,7 +67,7 @@ const FAQ_ITEMS = [
   {
     question: 'How do credits work?',
     answer:
-      'Credits are the currency inside ContentForge. Each generation costs a certain number of credits depending on the content type and quality tier you choose. For example, a 10-minute podcast with Standard voice costs about 5 credits, while Ultra voice costs about 40 credits. You can see the exact cost before generating.',
+      'Credits are the currency inside StudioStack. Each generation costs a certain number of credits depending on the content type and quality tier you choose. For example, a 10-minute podcast with Standard voice costs about 5 credits, while Ultra voice costs about 40 credits. You can see the exact cost before generating.',
   },
   {
     question: 'Do credits expire?',

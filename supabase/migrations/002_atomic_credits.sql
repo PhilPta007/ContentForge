@@ -1,4 +1,4 @@
--- ContentForge — Atomic Credit Operations
+-- StudioStack — Atomic Credit Operations
 -- Fixes race conditions on credit balance updates
 
 -- Atomic credit addition (for purchases/refunds)

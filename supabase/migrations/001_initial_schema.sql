@@ -1,4 +1,4 @@
--- ContentForge Phase 1 — Initial Schema
+-- StudioStack Phase 1 — Initial Schema
 -- Created: 2026-03-07
 
 -- Users (extends Supabase auth.users)

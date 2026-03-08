@@ -36,7 +36,7 @@ export function AppSidebar() {
     <aside className="flex h-screen w-60 flex-col bg-[#111111] border-r border-[#1e1e1e]">
       <div className="flex h-14 items-center px-4">
         <Link href="/app" className="text-lg font-bold text-white">
-          ContentForge
+          StudioStack
         </Link>
       </div>
 

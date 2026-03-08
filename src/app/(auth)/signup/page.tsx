@@ -3,7 +3,7 @@ import { SignupForm } from '@/components/auth/signup-form';
 import { OAuthButtons } from '@/components/auth/oauth-buttons';
 
 export const metadata: Metadata = {
-  title: 'Sign Up — ContentForge',
+  title: 'Sign Up — StudioStack',
 };
 
 export default function SignupPage() {

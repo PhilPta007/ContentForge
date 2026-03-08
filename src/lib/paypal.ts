@@ -49,7 +49,7 @@ export async function createPayPalOrder(
       intent: 'CAPTURE',
       purchase_units: [{
         reference_id: `${userId}-${packId}`,
-        description: `ContentForge ${packName} (${credits} credits)`,
+        description: `StudioStack ${packName} (${credits} credits)`,
         custom_id: JSON.stringify({ userId, packId }),
         amount: {
           currency_code: 'USD',
@@ -57,7 +57,7 @@ export async function createPayPalOrder(
         },
       }],
       application_context: {
-        brand_name: 'ContentForge',
+        brand_name: 'StudioStack',
         return_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/paypal/capture`,
         cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/app/credits?cancelled=true`,
         user_action: 'PAY_NOW',

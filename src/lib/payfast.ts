@@ -50,7 +50,7 @@ export function createPayFastUrl(
     email_address: userEmail,
     m_payment_id: `${userId}-${packId}-${Date.now()}`,
     amount: amountZar.toFixed(2),
-    item_name: `ContentForge ${packName} Credits`,
+    item_name: `StudioStack ${packName} Credits`,
     custom_str1: userId,
     custom_str2: packId,
   };

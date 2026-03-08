@@ -42,7 +42,7 @@ export function MobileNav({ open, onOpenChange }: MobileNavProps) {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="left" className="w-60 bg-[#111111] border-r border-[#1e1e1e] p-0">
         <SheetHeader className="flex h-14 items-center px-4 border-b border-[#1e1e1e]">
-          <SheetTitle className="text-lg font-bold text-white">ContentForge</SheetTitle>
+          <SheetTitle className="text-lg font-bold text-white">StudioStack</SheetTitle>
         </SheetHeader>
 
         <nav className="flex-1 space-y-1 px-3 py-4">

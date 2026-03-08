@@ -1,4 +1,4 @@
-# ContentForge — Phase 1 Tasks (Foundation)
+# StudioStack — Phase 1 Tasks (Foundation)
 
 > Phase: 1 of 7
 > Status: Not started

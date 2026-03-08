@@ -1,4 +1,4 @@
-export const APP_NAME = 'ContentForge';
+export const APP_NAME = 'StudioStack';
 export const APP_DESCRIPTION = 'AI-powered content creation for podcasters and YouTube creators';
 
 export const NAV_ITEMS = [

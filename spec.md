@@ -1,4 +1,4 @@
-# ContentForge — Phase 1 Specification (Foundation)
+# StudioStack — Phase 1 Specification (Foundation)
 
 > Version: 1.0.0
 > Created: 2026-03-07
@@ -8,7 +8,7 @@
 
 ## Project Overview
 
-ContentForge is an AI-powered SaaS content creation platform for podcasters and YouTube storytellers. Creators generate MP3 episodes, videos (static or AI motion), SEO descriptions, and thumbnails. The key differentiator is **creator choice**: users pick quality tiers (Standard/Premium/Ultra) for voice, images, and motion, paying per-credit with no subscription.
+StudioStack is an AI-powered SaaS content creation platform for podcasters and YouTube storytellers. Creators generate MP3 episodes, videos (static or AI motion), SEO descriptions, and thumbnails. The key differentiator is **creator choice**: users pick quality tiers (Standard/Premium/Ultra) for voice, images, and motion, paying per-credit with no subscription.
 
 **Business model:** Per-credit pricing. Users buy credit packs (50-5000 credits), spend credits on generations. Margins stay above 50% on all tier combinations, with a blended average around 70%.
 

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — ContentForge',
+  title: 'Terms of Service — StudioStack',
 };
 
 export default function TermsOfServicePage() {
@@ -16,11 +16,11 @@ export default function TermsOfServicePage() {
             1. Acceptance of Terms
           </h2>
           <p className="text-neutral-300 leading-relaxed">
-            By accessing or using ContentForge (&quot;the Platform&quot;), you
+            By accessing or using StudioStack (&quot;the Platform&quot;), you
             agree to be bound by these Terms of Service (&quot;Terms&quot;). If
             you do not agree to these Terms, you may not access or use the
             Platform. These Terms constitute a legally binding agreement between
-            you and ContentForge (Pty) Ltd (&quot;ContentForge&quot;,
+            you and StudioStack (Pty) Ltd (&quot;StudioStack&quot;,
             &quot;we&quot;, &quot;us&quot;, or &quot;our&quot;).
           </p>
         </section>
@@ -30,7 +30,7 @@ export default function TermsOfServicePage() {
             2. Description of Service
           </h2>
           <p className="text-neutral-300 leading-relaxed">
-            ContentForge is an AI-powered content generation platform that
+            StudioStack is an AI-powered content generation platform that
             enables users to create written content, marketing copy, and other
             text-based materials using artificial intelligence. The Platform
             operates on a per-credit pricing model, whereby users purchase
@@ -62,7 +62,7 @@ export default function TermsOfServicePage() {
             4. Credits and Payments
           </h2>
           <p className="text-neutral-300 leading-relaxed">
-            ContentForge operates on a credit-based system. Credits are
+            StudioStack operates on a credit-based system. Credits are
             purchased in predefined packs and are used to generate content on
             the Platform. The following terms apply to credits and payments:
           </p>
@@ -112,7 +112,7 @@ export default function TermsOfServicePage() {
               all generated content before use.
             </li>
             <li>
-              ContentForge is not liable for any consequences arising from the
+              StudioStack is not liable for any consequences arising from the
               use of AI-generated content without proper review.
             </li>
           </ul>
@@ -129,7 +129,7 @@ export default function TermsOfServicePage() {
             restriction.
           </p>
           <p className="text-neutral-300 leading-relaxed">
-            ContentForge retains all rights, title, and interest in the
+            StudioStack retains all rights, title, and interest in the
             Platform itself, including but not limited to its software,
             algorithms, user interface, design, branding, documentation, and
             all associated intellectual property. Nothing in these Terms grants
@@ -182,14 +182,14 @@ export default function TermsOfServicePage() {
             The Platform is provided on an &quot;as is&quot; and &quot;as
             available&quot; basis, without warranties of any kind, whether
             express, implied, or statutory. To the maximum extent permitted by
-            applicable law, ContentForge disclaims all warranties, including
+            applicable law, StudioStack disclaims all warranties, including
             but not limited to implied warranties of merchantability, fitness
             for a particular purpose, and non-infringement.
           </p>
           <p className="text-neutral-300 leading-relaxed">
-            In no event shall ContentForge&apos;s total liability to you for
+            In no event shall StudioStack&apos;s total liability to you for
             all claims arising out of or relating to the use of the Platform
-            exceed the total amount you have paid to ContentForge in the twelve
+            exceed the total amount you have paid to StudioStack in the twelve
             (12) months preceding the event giving rise to the claim.
           </p>
         </section>
@@ -245,10 +245,10 @@ export default function TermsOfServicePage() {
             If you have any questions or concerns regarding these Terms of
             Service, please contact us at{' '}
             <a
-              href="mailto:legal@contentforge.com"
+              href="mailto:legal@studiostack.com"
               className="text-white underline underline-offset-4 hover:text-neutral-300 transition-colors"
             >
-              legal@contentforge.com
+              legal@studiostack.com
             </a>
             .
           </p>

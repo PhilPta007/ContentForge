@@ -23,7 +23,7 @@ export function MarketingHeader() {
   return (
     <header className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-[#1e1e1e] bg-[#0a0a0a]/80 px-6 backdrop-blur-md">
       <Link href="/" className="text-lg font-bold text-white">
-        ContentForge
+        StudioStack
       </Link>
 
       {/* Desktop nav */}

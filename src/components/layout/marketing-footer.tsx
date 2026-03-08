@@ -42,7 +42,7 @@ export function MarketingFooter() {
         </div>
         <div className="mt-10 border-t border-[#1e1e1e] pt-6">
           <p className="text-xs text-neutral-500">
-            &copy; 2026 ContentForge. All rights reserved.
+            &copy; 2026 StudioStack. All rights reserved.
           </p>
         </div>
       </div>

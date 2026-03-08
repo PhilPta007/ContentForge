@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Refund Policy — ContentForge',
+  title: 'Refund Policy — StudioStack',
 };
 
 export default function RefundPolicyPage() {
@@ -14,7 +14,7 @@ export default function RefundPolicyPage() {
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-white">1. Overview</h2>
           <p className="text-neutral-300 leading-relaxed">
-            ContentForge operates on a credit-based pricing model. Credits are
+            StudioStack operates on a credit-based pricing model. Credits are
             digital goods purchased for use on the Platform and are generally
             non-refundable once purchased. This policy outlines the
             circumstances under which refunds may be granted.
@@ -99,10 +99,10 @@ export default function RefundPolicyPage() {
           <p className="text-neutral-300 leading-relaxed">
             To request a refund, please email{' '}
             <a
-              href="mailto:support@contentforge.com"
+              href="mailto:support@studiostack.com"
               className="text-white underline underline-offset-4 hover:text-neutral-300 transition-colors"
             >
-              support@contentforge.com
+              support@studiostack.com
             </a>{' '}
             within seven (7) days of the transaction in question. Please
             include your account email address, the transaction date, and a
@@ -142,10 +142,10 @@ export default function RefundPolicyPage() {
             If you have any questions about this Refund Policy or need
             assistance with a refund request, please contact us at{' '}
             <a
-              href="mailto:support@contentforge.com"
+              href="mailto:support@studiostack.com"
               className="text-white underline underline-offset-4 hover:text-neutral-300 transition-colors"
             >
-              support@contentforge.com
+              support@studiostack.com
             </a>
             .
           </p>

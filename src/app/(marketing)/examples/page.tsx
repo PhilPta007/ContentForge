@@ -3,9 +3,9 @@ import { Headphones, Video, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 export const metadata: Metadata = {
-  title: 'Examples — ContentForge',
+  title: 'Examples — StudioStack',
   description:
-    'See sample podcast episodes, videos, and descriptions created with ContentForge.',
+    'See sample podcast episodes, videos, and descriptions created with StudioStack.',
 };
 
 interface ExampleItem {
@@ -79,7 +79,7 @@ export default function ExamplesPage() {
           Examples
         </h1>
         <p className="mt-3 text-base text-neutral-400">
-          Sample outputs showing what ContentForge can create across different
+          Sample outputs showing what StudioStack can create across different
           content types and quality tiers.
         </p>
       </div>

@@ -417,13 +417,14 @@ try {
   }
 
   const uploadedImages = [];
+  const imageErrors = [];
   for (let i = 0; i < imagePrompts.length; i++) {
     try {
-      if (i > 0) await new Promise(r => setTimeout(r, 3000));
+      if (i > 0) await new Promise(r => setTimeout(r, 5000));
       const imgRaw = await postBinaryRequest(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=' + GOOGLE_API_KEY,
         { 'Content-Type': 'application/json' },
-        { contents: [{ parts: [{ text: 'Generate an image: ' + imagePrompts[i] }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }
+        { contents: [{ parts: [{ text: 'Generate an image: ' + imagePrompts[i].substring(0, 300) }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }
       );
       const imgResp = JSON.parse(imgRaw.toString('utf-8'));
       let base64 = null;
@@ -432,7 +433,7 @@ try {
           if (part.inlineData && part.inlineData.data) { base64 = part.inlineData.data; break; }
         }
       }
-      if (!base64) { continue; }
+      if (!base64) { imageErrors.push('img' + i + ':no-base64'); continue; }
       fs.writeFileSync(tmpDir + '/img_' + i + '.jpg', Buffer.from(base64, 'base64'));
 
       const imgPath = tmpDir + '/img_' + i + '.jpg';
@@ -440,10 +441,10 @@ try {
         await uploadToSupabase('images', generationId + '/img_' + i + '.jpg', imgPath, 'image/jpeg');
         uploadedImages.push({ index: i, url: SUPABASE_URL + '/storage/v1/object/public/images/' + generationId + '/img_' + i + '.jpg' });
       }
-    } catch (imgErr) { console.log('Image ' + i + ' failed:', imgErr.message); }
+    } catch (imgErr) { imageErrors.push('img' + i + ':' + imgErr.message.substring(0, 100)); }
   }
 
-  if (uploadedImages.length === 0) throw new Error('No images were generated successfully');
+  if (uploadedImages.length === 0) throw new Error('No images generated. Errors: ' + imageErrors.join(' | '));
   return [{ json: { generationId, callbackUrl, script, topic, duration, uploadedImages, tmpDir } }];
 } catch (e) {
   try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_e) {}

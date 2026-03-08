@@ -1,4 +1,4 @@
-# ContentForge - Progress
+# StudioStack - Progress
 
 > Last updated: 2026-03-07
 
@@ -25,7 +25,7 @@
 - [x] `src/stores/credit-store.ts` -- balance, isLoading, deduct/add/fetch actions
 
 ### Task 4: Auth Pages and Components
-- [x] `src/app/(auth)/layout.tsx` -- centred layout, dark bg, ContentForge branding
+- [x] `src/app/(auth)/layout.tsx` -- centred layout, dark bg, StudioStack branding
 - [x] `src/components/auth/login-form.tsx` -- email+password, Zod validation, Supabase signIn, loading/error states
 - [x] `src/components/auth/signup-form.tsx` -- full name+email+password+confirm, Zod with password match, success state
 - [x] `src/components/auth/oauth-buttons.tsx` -- Google+GitHub OAuth with separator, loading states
@@ -104,13 +104,13 @@
 - [x] `src/app/loading.tsx` -- Global loading spinner
 
 ### SEO Metadata
-- [x] `src/app/(marketing)/page.tsx` -- title "ContentForge — AI Content Creation for Creators"
-- [x] `src/app/(marketing)/pricing/page.tsx` -- title "Pricing — ContentForge"
-- [x] `src/app/(marketing)/examples/page.tsx` -- title "Examples — ContentForge"
-- [x] `src/app/(auth)/login/page.tsx` -- title "Sign In — ContentForge"
-- [x] `src/app/(auth)/signup/page.tsx` -- title "Sign Up — ContentForge"
-- [x] `src/app/(auth)/verify/page.tsx` -- title "Verify Email — ContentForge"
-- [x] `src/app/(auth)/forgot-password/page.tsx` -- title "Reset Password — ContentForge" (refactored to server component + client form)
+- [x] `src/app/(marketing)/page.tsx` -- title "StudioStack — AI Content Creation for Creators"
+- [x] `src/app/(marketing)/pricing/page.tsx` -- title "Pricing — StudioStack"
+- [x] `src/app/(marketing)/examples/page.tsx` -- title "Examples — StudioStack"
+- [x] `src/app/(auth)/login/page.tsx` -- title "Sign In — StudioStack"
+- [x] `src/app/(auth)/signup/page.tsx` -- title "Sign Up — StudioStack"
+- [x] `src/app/(auth)/verify/page.tsx` -- title "Verify Email — StudioStack"
+- [x] `src/app/(auth)/forgot-password/page.tsx` -- title "Reset Password — StudioStack" (refactored to server component + client form)
 - [x] `src/components/auth/forgot-password-form.tsx` -- Extracted client component from forgot-password page
 
 ---

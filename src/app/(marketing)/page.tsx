@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/table';
 
 export const metadata: Metadata = {
-  title: 'ContentForge — AI Content Creation for Creators',
+  title: 'StudioStack — AI Content Creation for Creators',
   description:
     'Create podcast episodes, YouTube videos, SEO descriptions, and thumbnails with AI. Choose your quality tier, pay per credit, no subscription.',
 };
