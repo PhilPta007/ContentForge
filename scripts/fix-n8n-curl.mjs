@@ -209,7 +209,7 @@ try {
   fs.rmSync(tmpDir, { recursive: true, force: true });
   return [{ json: { success: true, generationId, outputUrl } }];
 } catch (e) {
-  try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_e) {}
   await sendCallback(this.helpers, callbackUrl, generationId, 'failed', undefined, undefined, e.message);
   throw e;
 }`;
@@ -304,7 +304,7 @@ try {
   fs.rmSync(tmpDir, { recursive: true, force: true });
   return [{ json: { success: true, generationId, outputUrl } }];
 } catch (e) {
-  try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_e) {}
   await sendCallback(this.helpers, callbackUrl, generationId, 'failed', undefined, undefined, e.message);
   throw e;
 }`;
@@ -446,7 +446,7 @@ try {
   if (uploadedImages.length === 0) throw new Error('No images were generated successfully');
   return [{ json: { generationId, callbackUrl, script, topic, duration, uploadedImages, tmpDir } }];
 } catch (e) {
-  try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_e) {}
   throw e;
 }`;
 
@@ -474,7 +474,7 @@ try {
     try {
       await downloadFile(uploadedImages[i].url, imgPath);
       if (fs.statSync(imgPath).size > 1000) downloadedImages.push(imgPath);
-    } catch {}
+    } catch (_e) {}
   }
   if (downloadedImages.length === 0) throw new Error('All image downloads failed');
 
@@ -510,7 +510,7 @@ try {
   fs.rmSync(tmpDir, { recursive: true, force: true });
   return [{ json: { success: true, generationId, videoUrl } }];
 } catch (e) {
-  try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_e) {}
   await sendCallback(this.helpers, callbackUrl, generationId, 'failed', undefined, undefined, 'Video assembly failed: ' + e.message);
   throw e;
 }`;
@@ -521,13 +521,13 @@ ${CALLBACK_FN}
 
 let generationId = 'unknown';
 let callbackUrl = '';
-try { const d = $('Webhook').first().json.body; generationId = d.generationId; callbackUrl = d.callbackUrl; } catch {}
+try { const d = $('Webhook').first().json.body; generationId = d.generationId; callbackUrl = d.callbackUrl; } catch (_e) {}
 
 let errorMsg = 'Unknown error in generation pipeline';
 try {
   const inputData = $input.first().json;
   errorMsg = inputData.message || inputData.error || inputData.description || JSON.stringify(inputData).substring(0, 500);
-} catch {
+} catch (_e) {
   errorMsg = 'Workflow execution failed (no error details)';
 }
 
