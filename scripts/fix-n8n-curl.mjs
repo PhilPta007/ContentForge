@@ -169,12 +169,13 @@ try {
     const mp3Parts = [];
     for (let ci = 0; ci < chunks.length; ci++) {
       const ttsBody = { input: { text: chunks[ci] }, voice: { languageCode: 'en-US', name: 'en-US-WaveNet-D' }, audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0 } };
-      const ttsRaw = await postBinaryRequest(
-        'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_API_KEY,
-        { 'Content-Type': 'application/json' },
-        ttsBody
-      );
-      const ttsResp = JSON.parse(ttsRaw.toString('utf-8'));
+      const ttsResp = await this.helpers.httpRequest({
+        method: 'POST',
+        url: 'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_API_KEY,
+        headers: { 'Content-Type': 'application/json' },
+        body: ttsBody,
+        json: true, timeout: 60000
+      });
       if (!ttsResp.audioContent) throw new Error('Google TTS returned no audio for chunk ' + ci);
       mp3Parts.push(Buffer.from(ttsResp.audioContent, 'base64'));
     }
@@ -384,12 +385,13 @@ try {
     const mp3Parts = [];
     for (let ci = 0; ci < chunks.length; ci++) {
       const ttsBody = { input: { text: chunks[ci] }, voice: { languageCode: 'en-US', name: 'en-US-WaveNet-D' }, audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0, pitch: 0 } };
-      const ttsRaw = await postBinaryRequest(
-        'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_API_KEY,
-        { 'Content-Type': 'application/json' },
-        ttsBody
-      );
-      const ttsResp = JSON.parse(ttsRaw.toString('utf-8'));
+      const ttsResp = await this.helpers.httpRequest({
+        method: 'POST',
+        url: 'https://texttospeech.googleapis.com/v1/text:synthesize?key=' + GOOGLE_API_KEY,
+        headers: { 'Content-Type': 'application/json' },
+        body: ttsBody,
+        json: true, timeout: 60000
+      });
       if (!ttsResp.audioContent) throw new Error('Google TTS returned no audio for chunk ' + ci);
       mp3Parts.push(Buffer.from(ttsResp.audioContent, 'base64'));
     }
