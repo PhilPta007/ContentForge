@@ -46,11 +46,13 @@ export async function POST(request: Request) {
       updateData.output_url = payload.outputUrl;
       updateData.output_metadata = payload.metadata ?? null;
       updateData.completed_at = new Date().toISOString();
+      updateData.progress = null;
     }
 
     if (payload.error) {
       updateData.error_message = payload.error;
       updateData.completed_at = new Date().toISOString();
+      updateData.progress = null;
     }
 
     const { error: updateError } = await admin

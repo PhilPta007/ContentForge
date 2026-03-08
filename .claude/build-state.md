@@ -1,44 +1,53 @@
 # Build State
 
-> Last updated: 2026-03-08T10:30:00Z
-> Auto-saved after: my.sync — n8n workflow fixes + API key rotation
+> Last updated: 2026-03-08T19:45:00Z
+> Auto-saved after: my.sync — hybrid video gen, Ken Burns fix, stale job detector
 
 ## Current Session
-- **Feature**: n8n workflow debugging — image gen, TTS, video compression, API key fixes
+- **Feature**: n8n video pipeline optimization — clip count fix, hybrid filler, compression, stale jobs
 - **Phase**: testing
-- **Status**: all fixes deployed, awaiting successful end-to-end test
+- **Status**: all fixes deployed to n8n, awaiting test with Kie.ai credits top-up
 
 ## Completed This Session
-- Updated Thumbnail Handler from Gemini to Kie.ai Nano Banana 2 (Gemini 404 in n8n)
-- Updated Video Prepare image gen from Gemini to Kie.ai Nano Banana 2
-- Fixed video compression for Supabase 50MB limit (960x540, CRF 28, re-encode fallback)
-- Switched Google TTS from postBinaryRequest to this.helpers.httpRequest (403 fix)
-- Added error labels to Video Prepare for debugging ([Gemini-Script], [Google-TTS], etc.)
-- Replaced leaked Google API key (AIzaSyCvSgiT → AIzaSyCh-1doqUXYn43cKyY3qoXzh18WjI_akec)
-- Set Supabase video bucket file_size_limit to 100MB
-- Verified new key works for both Gemini and Cloud TTS
+- Fixed clip count bug: uses `sceneCount` from UI instead of `audioDuration/8` (was 34 clips, now 7)
+- Implemented hybrid video generation: VEO3 hero clips + Ken Burns filler clips interleaved
+- Fixed Ken Burns shaking: smooth `on/d` ratio interpolation, 12s clips at 25fps, 6 filter variations
+- Target bitrate compression: guarantees videos stay under Supabase 50MB limit
+- Added stale job detector (`/api/cron/stale-jobs`) — auto-refunds stuck jobs after 30 min
+- Fixed hydration mismatch on mobile menu SheetTrigger (explicit id)
+- Refunded 65 credits for stuck job `14e374fa` (n8n died at VEO3 clip 25/34)
+- Marked stuck job as failed in database
+- Investigated Kie.ai API for cheaper video models (Runway gen4_turbo found but no polling endpoint)
+- Confirmed Kie.ai credits are depleted — need top-up before next VEO3 test
 
 ## Previous Sessions (carried forward)
+- Live progress tracking + full tier support for images, motion, descriptions
 - Renamed ContentForge → StudioStack across 27+ files
 - Fixed n8n Code nodes: catch {} → catch (_e) {} for VM compatibility
-- Fixed Kokoro TTS: port 5099, GET method
-- Fixed premium voice: Google Cloud TTS WaveNet
+- Fixed Kokoro TTS, Google WaveNet, ElevenLabs integration
 - All 6 n8n workflow nodes patched and active
 
 ## Pending
-- End-to-end test video generation (all fixes deployed, awaiting test result)
-- End-to-end test MP3 generation
-- End-to-end test thumbnail generation
-- End-to-end test description generation
-- Update Vercel env vars with new Google API key
+- Top up Kie.ai credits and test hybrid video generation end-to-end
+- Set up Vercel cron for stale job detector (add CRON_SECRET env var + vercel.json cron config)
+- Upgrade Supabase to Pro for 5GB file limit (needed for 30-min videos)
+- Explore fal.ai Kling 1.5 as cheaper alternative to VEO3 (deferred)
 - Clean up tmp-*.json files from repo root
 
 ## Files Modified This Session
-- `scripts/fix-n8n-curl.mjs` — Kie.ai images, TTS httpRequest, error labels, new API key
-- `.env.local` — Updated GOOGLE_API_KEY
+- `scripts/fix-n8n-curl.mjs` — clip count fix, hybrid filler, smooth Ken Burns, target bitrate compression
+- `src/app/api/cron/stale-jobs/route.ts` — NEW: stale job detector with auto-refund
+- `src/components/layout/marketing-header.tsx` — hydration fix (explicit id on SheetTrigger)
+
+## Key Decisions
+- Hybrid approach: VEO3 for hero clips + Ken Burns filler (cost-effective, reduces repetition)
+- Ken Burns 12s clips at 25fps with 6 filter variations (zoom in/out, pan L/R, tilt, diagonal)
+- Interleaving: hero-filler-filler-hero pattern for visual variety
+- VEO3 cost per 5-min video: ~R52 (7 clips × $0.40)
+- Supabase free tier 50MB limit handled via target bitrate encoding
 
 ## Last Action
-Replaced leaked Google API key. Both Gemini and TTS confirmed working (200).
+Committed and pushed: hybrid video generation, smooth Ken Burns, stale job detector.
 
 ## Resume Instructions
-Test video generation end-to-end. If successful, test remaining types (MP3, thumbnail, description). Update Vercel env with new Google API key.
+Top up Kie.ai credits, then test a video generation with `motionTier: 'ai'` to verify hybrid filler works. Can also test `motionTier: 'static'` immediately (free) to check smooth Ken Burns quality. Set up Vercel cron for stale jobs.
