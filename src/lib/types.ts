@@ -31,6 +31,13 @@ export type CreditPack = {
   created_at: string;
 };
 
+export type ProgressInfo = {
+  stage: string;
+  current?: number;
+  total?: number;
+  message: string;
+};
+
 export type Generation = {
   id: string;
   user_id: string;
@@ -50,6 +57,7 @@ export type Generation = {
   output_url: string | null;
   output_metadata: Record<string, unknown> | null;
   error_message: string | null;
+  progress: ProgressInfo | null;
   started_at: string | null;
   completed_at: string | null;
   created_at: string;

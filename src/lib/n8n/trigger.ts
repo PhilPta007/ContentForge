@@ -13,6 +13,7 @@ export interface GenerationPayload {
   sceneCount?: number;
 
   youtubeUrl?: string;
+  style?: string;
   brandVoice?: Record<string, unknown>;
   affiliateLinks?: { label: string; url: string }[];
   customScript?: string;

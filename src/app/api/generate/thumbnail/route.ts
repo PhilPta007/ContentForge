@@ -78,6 +78,7 @@ export async function POST(request: Request) {
       topic,
       imageTier,
       callbackUrl,
+      ...(style && { style }),
     }).catch(async () => {
       await admin
         .from('generations')

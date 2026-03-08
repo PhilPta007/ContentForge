@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Headphones, Video, FileText, Image } from 'lucide-react';
+import { Headphones, Video, FileText, Image, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Generation, GenerationType } from '@/lib/types';
+import type { Generation, GenerationType, ProgressInfo } from '@/lib/types';
 
 interface JobCardProps {
   job: Generation;
@@ -45,51 +45,88 @@ function formatRelativeTime(dateString: string): string {
   return `${diffDays}d ago`;
 }
 
+function ProgressBar({ progress }: { progress: ProgressInfo }) {
+  const percent = progress.current && progress.total
+    ? Math.round((progress.current / progress.total) * 100)
+    : null;
+
+  return (
+    <div className="mt-2 space-y-1">
+      <div className="flex items-center gap-2">
+        <Loader2 className="h-3 w-3 text-blue-400 animate-spin" />
+        <span className="text-xs text-blue-400">{progress.message}</span>
+        {percent !== null && (
+          <span className="text-xs text-neutral-500 ml-auto">{percent}%</span>
+        )}
+      </div>
+      {percent !== null && (
+        <div className="h-1 w-full rounded-full bg-neutral-800 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-blue-500 transition-all duration-500"
+            style={{ width: `${percent}%` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function JobCard({ job, isHighlighted }: JobCardProps) {
   const Icon = TYPE_ICONS[job.type];
+  const isActive = job.status === 'pending' || job.status === 'processing';
 
   const content = (
     <div
       className={cn(
-        'flex items-center gap-4 p-4 border rounded-lg transition-colors',
+        'flex flex-col p-4 border rounded-lg transition-colors',
         isHighlighted
           ? 'border-indigo-600/50 bg-indigo-600/5'
           : 'border-[#1e1e1e] hover:border-[#2a2a2a]'
       )}
     >
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-800/50 flex-shrink-0">
-        <Icon className="h-5 w-5 text-neutral-400" />
+      <div className="flex items-center gap-4">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-800/50 flex-shrink-0">
+          {isActive ? (
+            <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
+          ) : (
+            <Icon className="h-5 w-5 text-neutral-400" />
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-neutral-200 truncate">
+              {job.input_topic}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-xs text-neutral-500">
+              {TYPE_LABELS[job.type]}
+            </span>
+            <span className="text-xs text-neutral-600">|</span>
+            <span className="text-xs text-neutral-500">
+              {job.credits_used} credits
+            </span>
+            <span className="text-xs text-neutral-600">|</span>
+            <span className="text-xs text-neutral-500">
+              {formatRelativeTime(job.created_at)}
+            </span>
+          </div>
+        </div>
+
+        <span
+          className={cn(
+            'inline-flex items-center px-2 py-0.5 text-xs font-medium rounded border flex-shrink-0',
+            STATUS_STYLES[job.status]
+          )}
+        >
+          {job.status}
+        </span>
       </div>
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-neutral-200 truncate">
-            {job.input_topic}
-          </span>
-        </div>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-xs text-neutral-500">
-            {TYPE_LABELS[job.type]}
-          </span>
-          <span className="text-xs text-neutral-600">|</span>
-          <span className="text-xs text-neutral-500">
-            {job.credits_used} credits
-          </span>
-          <span className="text-xs text-neutral-600">|</span>
-          <span className="text-xs text-neutral-500">
-            {formatRelativeTime(job.created_at)}
-          </span>
-        </div>
-      </div>
-
-      <span
-        className={cn(
-          'inline-flex items-center px-2 py-0.5 text-xs font-medium rounded border flex-shrink-0',
-          STATUS_STYLES[job.status]
-        )}
-      >
-        {job.status}
-      </span>
+      {isActive && job.progress && (
+        <ProgressBar progress={job.progress} />
+      )}
     </div>
   );
 

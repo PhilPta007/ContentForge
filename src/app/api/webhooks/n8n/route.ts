@@ -2,16 +2,26 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { addCredits } from '@/lib/credits-service';
 
+interface ProgressInfo {
+  stage: string;
+  current?: number;
+  total?: number;
+  message: string;
+}
+
 interface CallbackPayload {
   generationId: string;
-  status: 'complete' | 'failed';
+  status: string;
   outputUrl?: string;
   metadata?: {
     duration?: number;
     fileSize?: number;
     format?: string;
+    thumbnailUrl?: string;
+    clipCount?: number;
   };
   error?: string;
+  progress?: ProgressInfo;
 }
 
 export async function POST(request: Request) {
@@ -24,25 +34,28 @@ export async function POST(request: Request) {
     const payload: CallbackPayload = await request.json();
     const admin = createAdminClient();
 
-    const { data: generation, error: fetchError } = await admin
-      .from('generations')
-      .select('id, user_id, credits_used')
-      .eq('id', payload.generationId)
-      .single();
+    const updateData: Record<string, unknown> = {
+      status: payload.status,
+    };
 
-    if (fetchError || !generation) {
-      return new NextResponse('Generation not found', { status: 404 });
+    if (payload.progress) {
+      updateData.progress = payload.progress;
+    }
+
+    if (payload.outputUrl) {
+      updateData.output_url = payload.outputUrl;
+      updateData.output_metadata = payload.metadata ?? null;
+      updateData.completed_at = new Date().toISOString();
+    }
+
+    if (payload.error) {
+      updateData.error_message = payload.error;
+      updateData.completed_at = new Date().toISOString();
     }
 
     const { error: updateError } = await admin
       .from('generations')
-      .update({
-        status: payload.status,
-        output_url: payload.outputUrl ?? null,
-        output_metadata: payload.metadata ?? null,
-        error_message: payload.error ?? null,
-        completed_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq('id', payload.generationId);
 
     if (updateError) {
@@ -51,13 +64,21 @@ export async function POST(request: Request) {
 
     // Atomic refund on failure
     if (payload.status === 'failed') {
-      await addCredits(
-        generation.user_id,
-        generation.credits_used,
-        'refund',
-        'Refund: generation failed',
-        generation.id
-      );
+      const { data: generation } = await admin
+        .from('generations')
+        .select('id, user_id, credits_used')
+        .eq('id', payload.generationId)
+        .single();
+
+      if (generation) {
+        await addCredits(
+          generation.user_id,
+          generation.credits_used,
+          'refund',
+          'Refund: generation failed',
+          generation.id
+        );
+      }
     }
 
     return new NextResponse('OK');

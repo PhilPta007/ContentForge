@@ -37,15 +37,15 @@ const CB_SECRET = '${env('N8N_WEBHOOK_SECRET')}';`;
 
 // ─── Callback helper ─────────────────────────────────────────
 const CALLBACK_FN = `
-async function sendCallback(helpers, callbackUrl, generationId, status, outputUrl, metadata, error) {
+async function sendCallback(helpers, callbackUrl, generationId, status, outputUrl, metadata, error, progress) {
   try {
     await helpers.httpRequest({
       method: 'POST', url: callbackUrl,
       headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': CB_SECRET },
-      body: { generationId, status, outputUrl, metadata, error },
-      json: true, timeout: 15000
+      body: { generationId, status, outputUrl, metadata, error, progress: progress || null },
+      json: true, timeout: 5000
     });
-  } catch (_e) { /* callback failed */ }
+  } catch (_e) { /* callback failed - don't block pipeline */ }
 }`;
 
 // ─── TTS Preprocessing (strips markdown for clean speech) ────
@@ -195,6 +195,26 @@ async function generateVEO3Clip(helpers, kieKey, prompt, maxWaitMs) {
   throw new Error('VEO3 timed out after ' + (maxWaitMs / 1000) + 's');
 }`;
 
+// ─── Imagen 4.0 helper (shared by Video Prepare + Thumbnail) ─
+const IMAGEN_HELPER = `
+async function generateImagenImage(helpers, googleApiKey, prompt, model) {
+  model = model || 'imagen-4.0-generate-001';
+  const resp = await helpers.httpRequest({
+    method: 'POST',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':predict?key=' + googleApiKey,
+    headers: { 'Content-Type': 'application/json' },
+    body: {
+      instances: [{ prompt: prompt.substring(0, 500) }],
+      parameters: { sampleCount: 1, aspectRatio: '16:9' }
+    },
+    json: true, timeout: 90000
+  });
+  if (!resp.predictions || !resp.predictions[0] || !resp.predictions[0].bytesBase64Encoded) {
+    throw new Error('Imagen returned no image: ' + JSON.stringify(resp).substring(0, 300));
+  }
+  return Buffer.from(resp.predictions[0].bytesBase64Encoded, 'base64');
+}`;
+
 // ─── SA Prompt builder (shared by Video Prepare + Thumbnail) ─
 const SA_PROMPT_FN = `
 function buildSAPrompt(sceneDescription, tone) {
@@ -233,6 +253,7 @@ const tmpDir = '/tmp/ss_' + generationId;
 
 try {
   fs.mkdirSync(tmpDir, { recursive: true });
+  await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'writing_script', message: 'Generating script...' });
 
   // Script: use custom if provided, else generate with Gemini
   let script;
@@ -262,6 +283,7 @@ try {
 
   // Clean markdown before TTS
   script = cleanScriptForTTS(script);
+  await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'generating_audio', message: 'Converting to audio...' });
 
   // TTS - standard=Kokoro, premium=Google WaveNet, ultra=ElevenLabs(adam)
   if (voiceTier === 'standard') {
@@ -318,6 +340,7 @@ try {
   const audioStat = fs.statSync(tmpDir + '/audio.mp3');
   if (audioStat.size < 1000) throw new Error('Audio file too small: ' + audioStat.size + ' bytes');
 
+  await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'uploading', message: 'Uploading audio...' });
   await uploadToSupabase('audio', generationId + '.mp3', tmpDir + '/audio.mp3', 'audio/mpeg');
 
   const outputUrl = SUPABASE_URL + '/storage/v1/object/public/audio/' + generationId + '.mp3';
@@ -341,9 +364,46 @@ ${BINARY_HELPERS}
 
 const fs = require('fs');
 const data = $('Webhook').first().json.body;
-const { generationId, topic, brandVoice, affiliateLinks, callbackUrl } = data;
+const { generationId, topic, brandVoice, affiliateLinks, youtubeUrl, callbackUrl } = data;
 
 try {
+  // Fetch YouTube transcript if URL provided
+  let transcriptContext = '';
+  if (youtubeUrl) {
+    try {
+      const vidMatch = youtubeUrl.match(/(?:v=|youtu\\.be\\/)([a-zA-Z0-9_-]{11})/);
+      if (vidMatch) {
+        const videoId = vidMatch[1];
+        const pageHtml = await this.helpers.httpRequest({
+          method: 'GET',
+          url: 'https://www.youtube.com/watch?v=' + videoId,
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          timeout: 15000
+        });
+        if (typeof pageHtml === 'string') {
+          const captionMatch = pageHtml.match(/"captionTracks":\\s*\\[.*?"baseUrl":\\s*"(.*?)"/);
+          if (captionMatch) {
+            const captionUrl = captionMatch[1].replace(/\\\\u0026/g, '&');
+            const captionData = await this.helpers.httpRequest({
+              method: 'GET',
+              url: captionUrl + '&fmt=json3',
+              json: true,
+              timeout: 10000
+            });
+            if (captionData && captionData.events) {
+              transcriptContext = captionData.events
+                .filter(e => e.segs)
+                .map(e => e.segs.map(s => s.utf8).join(''))
+                .join(' ')
+                .replace(/\\s+/g, ' ')
+                .trim();
+            }
+          }
+        }
+      }
+    } catch (_e) { /* transcript fetch failed - continue with topic only */ }
+  }
+
   let brandInstructions = '';
   if (brandVoice) {
     brandInstructions = '\\n\\nBrand Voice: Tone=' + (brandVoice.tone || 'professional') + ', Style=' + (brandVoice.style || 'informative');
@@ -355,7 +415,14 @@ try {
     affiliateInstructions = '\\n\\nNaturally include these links:\\n' + affiliateLinks.map(l => '- ' + l.label + ': ' + l.url).join('\\n');
   }
 
-  const prompt = 'Write a professional YouTube video description for: ' + topic + '\\n\\nRequirements:\\n- Engaging hook in the first 2 lines\\n- Organized sections with emoji headers\\n- Timestamps placeholder section\\n- 5-8 relevant hashtags at end\\n- SEO-optimized keywords\\n- Subscribe/like CTA\\n- 1500-2500 characters total' + brandInstructions + affiliateInstructions + '\\n\\nWrite ONLY the description text, ready to paste into YouTube.';
+  await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'writing_description', message: transcriptContext ? 'Writing description from transcript...' : 'Writing description...' });
+
+  let transcriptSection = '';
+  if (transcriptContext) {
+    transcriptSection = '\\n\\nVideo transcript (use this as the primary content source — extract key topics, quotes, and structure from it):\\n' + transcriptContext.substring(0, 5000);
+  }
+
+  const prompt = 'Write a professional YouTube video description for: ' + topic + transcriptSection + '\\n\\nRequirements:\\n- Engaging hook in the first 2 lines\\n- Organized sections with emoji headers\\n- Timestamps placeholder section\\n- 5-8 relevant hashtags at end\\n- SEO-optimized keywords\\n- Subscribe/like CTA\\n- 1500-2500 characters total' + brandInstructions + affiliateInstructions + '\\n\\nWrite ONLY the description text, ready to paste into YouTube.';
 
   const resp = await this.helpers.httpRequest({
     method: 'POST',
@@ -389,6 +456,7 @@ const THUMB_HANDLER = `${CONSTANTS}
 ${CALLBACK_FN}
 ${BINARY_HELPERS}
 ${SA_PROMPT_FN}
+${IMAGEN_HELPER}
 
 const fs = require('fs');
 const data = $('Webhook').first().json.body;
@@ -398,38 +466,46 @@ const tmpDir = '/tmp/ss_' + generationId;
 
 try {
   fs.mkdirSync(tmpDir, { recursive: true });
+  await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'generating_thumbnail', message: 'Generating thumbnail...' });
   const prompt = 'YouTube thumbnail for: ' + topic + '. South African context. ' + (style ? 'Style: ' + style + '. ' : '') + 'Eye-catching, bold, high contrast, professional YouTube thumbnail, 16:9 aspect ratio, vibrant colors, clear focal point, cinematic quality.';
 
-  // Generate thumbnail via Kie.ai Nano Banana 2
-  const createResp = await this.helpers.httpRequest({
-    method: 'POST',
-    url: 'https://api.kie.ai/api/v1/jobs/createTask',
-    headers: { 'Authorization': 'Bearer ' + KIE_API_KEY, 'Content-Type': 'application/json' },
-    body: { model: 'nano-banana-2', input: { prompt: prompt.substring(0, 300), aspect_ratio: '16:9', resolution: '1K', output_format: 'jpg' } },
-    json: true, timeout: 30000
-  });
-  if (!createResp.data || !createResp.data.taskId) throw new Error('Kie.ai returned no taskId');
-  const taskId = createResp.data.taskId;
-
-  let imageUrl = null;
-  for (let poll = 0; poll < 18; poll++) {
-    await new Promise(r => setTimeout(r, 5000));
-    const statusResp = await this.helpers.httpRequest({
-      method: 'GET',
-      url: 'https://api.kie.ai/api/v1/jobs/recordInfo?taskId=' + taskId,
-      headers: { 'Authorization': 'Bearer ' + KIE_API_KEY },
-      json: true, timeout: 10000
+  if (imageTier === 'premium' || imageTier === 'ultra') {
+    // Google Imagen 4.0 / Ultra
+    const model = imageTier === 'ultra' ? 'imagen-4.0-ultra-generate-001' : 'imagen-4.0-generate-001';
+    const imgBuf = await generateImagenImage(this.helpers, GOOGLE_API_KEY, prompt, model);
+    fs.writeFileSync(tmpDir + '/thumb.jpg', imgBuf);
+  } else {
+    // Kie.ai Nano Banana 2 (standard)
+    const createResp = await this.helpers.httpRequest({
+      method: 'POST',
+      url: 'https://api.kie.ai/api/v1/jobs/createTask',
+      headers: { 'Authorization': 'Bearer ' + KIE_API_KEY, 'Content-Type': 'application/json' },
+      body: { model: 'nano-banana-2', input: { prompt: prompt.substring(0, 300), aspect_ratio: '16:9', resolution: '1K', output_format: 'jpg' } },
+      json: true, timeout: 30000
     });
-    const state = statusResp.data && statusResp.data.state;
-    if (state === 'success') {
-      const result = JSON.parse(statusResp.data.resultJson || '{}');
-      if (result.resultUrls && result.resultUrls[0]) imageUrl = result.resultUrls[0];
-      break;
+    if (!createResp.data || !createResp.data.taskId) throw new Error('Kie.ai returned no taskId');
+    const taskId = createResp.data.taskId;
+
+    let imageUrl = null;
+    for (let poll = 0; poll < 18; poll++) {
+      await new Promise(r => setTimeout(r, 5000));
+      const statusResp = await this.helpers.httpRequest({
+        method: 'GET',
+        url: 'https://api.kie.ai/api/v1/jobs/recordInfo?taskId=' + taskId,
+        headers: { 'Authorization': 'Bearer ' + KIE_API_KEY },
+        json: true, timeout: 10000
+      });
+      const state = statusResp.data && statusResp.data.state;
+      if (state === 'success') {
+        const result = JSON.parse(statusResp.data.resultJson || '{}');
+        if (result.resultUrls && result.resultUrls[0]) imageUrl = result.resultUrls[0];
+        break;
+      }
+      if (state === 'fail') throw new Error('Kie.ai failed: ' + (statusResp.data.failMsg || 'unknown'));
     }
-    if (state === 'fail') throw new Error('Kie.ai failed: ' + (statusResp.data.failMsg || 'unknown'));
+    if (!imageUrl) throw new Error('Kie.ai thumbnail timed out after 90s');
+    await downloadFile(imageUrl, tmpDir + '/thumb.jpg');
   }
-  if (!imageUrl) throw new Error('Kie.ai thumbnail timed out after 90s');
-  await downloadFile(imageUrl, tmpDir + '/thumb.jpg');
 
   const imgStat = fs.statSync(tmpDir + '/thumb.jpg');
   if (imgStat.size < 1000) throw new Error('Image too small: ' + imgStat.size + ' bytes');
@@ -457,15 +533,17 @@ ${TTS_CLEAN_FN}
 ${BINARY_HELPERS}
 ${SA_PROMPT_FN}
 ${VEO3_HELPER}
+${IMAGEN_HELPER}
 
 const fs = require('fs');
 const { execSync } = require('child_process');
 const data = $('Webhook').first().json.body;
-const { generationId, topic, duration, tone, voiceTier, imageTier, sceneCount, callbackUrl, customScript } = data;
+const { generationId, topic, duration, tone, voiceTier, imageTier, motionTier, sceneCount, callbackUrl, customScript } = data;
 const tmpDir = '/tmp/ss_' + generationId;
 
 try {
   fs.mkdirSync(tmpDir, { recursive: true });
+  await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'writing_script', message: 'Writing script...' });
 
   // ── Step 1: Script generation ──
   let script;
@@ -495,6 +573,8 @@ try {
   // ── Step 2: Clean script for TTS ──
   script = cleanScriptForTTS(script);
   const sections = script.split(/---+/).map(s => s.trim()).filter(s => s.length > 0);
+
+  await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'generating_audio', message: 'Converting script to audio...' });
 
   // ── Step 3: TTS — standard=Kokoro, premium=Google WaveNet, ultra=ElevenLabs ──
   if (voiceTier === 'standard') {
@@ -589,43 +669,54 @@ try {
     imagePrompts.push(buildSAPrompt(topic, tone));
   }
 
-  // ── Step 6: Generate images via Kie.ai Nano Banana 2 ──
+  // ── Step 6: Generate images (tier-aware) ──
   const uploadedImages = [];
   const imageErrors = [];
   for (let i = 0; i < imagePrompts.length; i++) {
     try {
+      await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'generating_images', current: i + 1, total: imagePrompts.length, message: 'Generating image ' + (i + 1) + ' of ' + imagePrompts.length + '...' });
       if (i > 0) await new Promise(r => setTimeout(r, 2000));
-      const createResp = await this.helpers.httpRequest({
-        method: 'POST',
-        url: 'https://api.kie.ai/api/v1/jobs/createTask',
-        headers: { 'Authorization': 'Bearer ' + KIE_API_KEY, 'Content-Type': 'application/json' },
-        body: { model: 'nano-banana-2', input: { prompt: imagePrompts[i].substring(0, 300), aspect_ratio: '16:9', resolution: '1K', output_format: 'jpg' } },
-        json: true, timeout: 30000
-      });
-      if (!createResp.data || !createResp.data.taskId) { imageErrors.push('img' + i + ':no-taskId'); continue; }
-      const taskId = createResp.data.taskId;
 
-      let imageUrl = null;
-      for (let poll = 0; poll < 18; poll++) {
-        await new Promise(r => setTimeout(r, 5000));
-        const statusResp = await this.helpers.httpRequest({
-          method: 'GET',
-          url: 'https://api.kie.ai/api/v1/jobs/recordInfo?taskId=' + taskId,
-          headers: { 'Authorization': 'Bearer ' + KIE_API_KEY },
-          json: true, timeout: 10000
-        });
-        const state = statusResp.data && statusResp.data.state;
-        if (state === 'success') {
-          const result = JSON.parse(statusResp.data.resultJson || '{}');
-          if (result.resultUrls && result.resultUrls[0]) imageUrl = result.resultUrls[0];
-          break;
-        }
-        if (state === 'fail') { imageErrors.push('img' + i + ':kie-fail:' + (statusResp.data.failMsg || '')); break; }
-      }
-      if (!imageUrl) { if (!imageErrors.some(e => e.startsWith('img' + i))) imageErrors.push('img' + i + ':timeout'); continue; }
-
-      await downloadFile(imageUrl, tmpDir + '/img_' + i + '.jpg');
       const imgPath = tmpDir + '/img_' + i + '.jpg';
+
+      if (imageTier === 'premium' || imageTier === 'ultra') {
+        // Google Imagen 4.0 / Ultra
+        const model = imageTier === 'ultra' ? 'imagen-4.0-ultra-generate-001' : 'imagen-4.0-generate-001';
+        const imgBuf = await generateImagenImage(this.helpers, GOOGLE_API_KEY, imagePrompts[i], model);
+        fs.writeFileSync(imgPath, imgBuf);
+      } else {
+        // Kie.ai Nano Banana 2 (standard)
+        const createResp = await this.helpers.httpRequest({
+          method: 'POST',
+          url: 'https://api.kie.ai/api/v1/jobs/createTask',
+          headers: { 'Authorization': 'Bearer ' + KIE_API_KEY, 'Content-Type': 'application/json' },
+          body: { model: 'nano-banana-2', input: { prompt: imagePrompts[i].substring(0, 300), aspect_ratio: '16:9', resolution: '1K', output_format: 'jpg' } },
+          json: true, timeout: 30000
+        });
+        if (!createResp.data || !createResp.data.taskId) { imageErrors.push('img' + i + ':no-taskId'); continue; }
+        const taskId = createResp.data.taskId;
+
+        let imageUrl = null;
+        for (let poll = 0; poll < 18; poll++) {
+          await new Promise(r => setTimeout(r, 5000));
+          const statusResp = await this.helpers.httpRequest({
+            method: 'GET',
+            url: 'https://api.kie.ai/api/v1/jobs/recordInfo?taskId=' + taskId,
+            headers: { 'Authorization': 'Bearer ' + KIE_API_KEY },
+            json: true, timeout: 10000
+          });
+          const state = statusResp.data && statusResp.data.state;
+          if (state === 'success') {
+            const result = JSON.parse(statusResp.data.resultJson || '{}');
+            if (result.resultUrls && result.resultUrls[0]) imageUrl = result.resultUrls[0];
+            break;
+          }
+          if (state === 'fail') { imageErrors.push('img' + i + ':kie-fail:' + (statusResp.data.failMsg || '')); break; }
+        }
+        if (!imageUrl) { if (!imageErrors.some(e => e.startsWith('img' + i))) imageErrors.push('img' + i + ':timeout'); continue; }
+        await downloadFile(imageUrl, imgPath);
+      }
+
       if (fs.existsSync(imgPath) && fs.statSync(imgPath).size > 1000) {
         await uploadToSupabase('images', generationId + '/img_' + i + '.jpg', imgPath, 'image/jpeg');
         uploadedImages.push({
@@ -639,23 +730,52 @@ try {
 
   if (uploadedImages.length === 0) throw new Error('[Images] All failed: ' + imageErrors.join(' | '));
 
-  // ── Step 7: Generate VEO3 Fast video clips from each image ──
+  // ── Step 7: Generate video clips (motionTier-aware) ──
   const videoClips = [];
-  const veoErrors = [];
-  for (let i = 0; i < uploadedImages.length; i++) {
-    try {
-      if (i > 0) await new Promise(r => setTimeout(r, 3000));
-      const motionPrompt = uploadedImages[i].prompt + '. Slow cinematic camera movement, subtle pan and gentle zoom, atmospheric documentary feel, South African setting.';
-      const clipUrl = await generateVEO3Clip(this.helpers, KIE_API_KEY, motionPrompt, 180000);
-      videoClips.push({ index: i, url: clipUrl });
-    } catch (veoErr) {
-      veoErrors.push('veo' + i + ':' + (veoErr.message || String(veoErr)).substring(0, 150));
+  const motionErrors = [];
+
+  if (motionTier === 'static' || !motionTier) {
+    // Ken Burns effect — ffmpeg zoompan on still images
+    const kenBurnsFilters = [
+      "zoompan=z='min(zoom+0.001,1.2)':d=240:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1920x1080:fps=30",
+      "zoompan=z='if(eq(on,1),1.2,max(zoom-0.001,1.0))':d=240:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=1920x1080:fps=30",
+      "zoompan=z='1.05':d=240:x='if(eq(on,1),0,min(x+2,iw-iw/zoom))':y='ih/2-(ih/zoom/2)':s=1920x1080:fps=30",
+      "zoompan=z='1.05':d=240:x='iw/2-(iw/zoom/2)':y='if(eq(on,1),0,min(y+1,ih-ih/zoom))':s=1920x1080:fps=30"
+    ];
+
+    for (let i = 0; i < uploadedImages.length; i++) {
+      try {
+        await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'generating_videos', current: i + 1, total: uploadedImages.length, message: 'Creating Ken Burns clip ' + (i + 1) + ' of ' + uploadedImages.length + '...' });
+        const imgPath = tmpDir + '/img_' + uploadedImages[i].index + '.jpg';
+        const clipPath = tmpDir + '/kb_clip_' + String(i).padStart(3, '0') + '.mp4';
+        const filter = kenBurnsFilters[i % kenBurnsFilters.length];
+        fs.writeFileSync(tmpDir + '/filter_' + i + '.txt', filter);
+        execSync('ffmpeg -loop 1 -i ' + imgPath + ' -filter_script:v ' + tmpDir + '/filter_' + i + '.txt -c:v libx264 -t 8 -pix_fmt yuv420p -y ' + clipPath, { timeout: 120000 });
+        if (fs.existsSync(clipPath) && fs.statSync(clipPath).size > 5000) {
+          videoClips.push({ index: i, localPath: clipPath });
+        }
+      } catch (kbErr) {
+        motionErrors.push('kb' + i + ':' + (kbErr.message || String(kbErr)).substring(0, 150));
+      }
+    }
+  } else {
+    // VEO3 Fast clips (ai and premium tiers)
+    for (let i = 0; i < uploadedImages.length; i++) {
+      try {
+        await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'generating_videos', current: i + 1, total: uploadedImages.length, message: 'Generating video clip ' + (i + 1) + ' of ' + uploadedImages.length + '...' });
+        if (i > 0) await new Promise(r => setTimeout(r, 3000));
+        const motionPrompt = uploadedImages[i].prompt + '. Slow cinematic camera movement, subtle pan and gentle zoom, atmospheric documentary feel, South African setting.';
+        const clipUrl = await generateVEO3Clip(this.helpers, KIE_API_KEY, motionPrompt, 180000);
+        videoClips.push({ index: i, url: clipUrl });
+      } catch (veoErr) {
+        motionErrors.push('veo' + i + ':' + (veoErr.message || String(veoErr)).substring(0, 150));
+      }
     }
   }
 
-  if (videoClips.length === 0) throw new Error('[VEO3] All clips failed: ' + veoErrors.join(' | '));
+  if (videoClips.length === 0) throw new Error('[Motion] All clips failed: ' + motionErrors.join(' | '));
 
-  return [{ json: { generationId, callbackUrl, script, topic, duration, videoClips, uploadedImages, tmpDir, veoErrors } }];
+  return [{ json: { generationId, callbackUrl, script, topic, duration, videoClips, uploadedImages, tmpDir, motionErrors, motionTier: motionTier || 'static' } }];
 } catch (e) {
   try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_e) {}
   e.message = '[VideoPrepare] ' + e.message;
@@ -673,10 +793,11 @@ ${BINARY_HELPERS}
 const fs = require('fs');
 const { execSync } = require('child_process');
 const prev = $input.first().json;
-const { generationId, callbackUrl, duration, videoClips, tmpDir } = prev;
+const { generationId, callbackUrl, duration, videoClips, tmpDir, motionTier } = prev;
 
 try {
   if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+  await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'compiling', message: 'Assembling video...' });
 
   // Download TTS audio from Supabase
   const audioUrl = SUPABASE_URL + '/storage/v1/object/public/audio/' + generationId + '.mp3';
@@ -684,16 +805,23 @@ try {
   const audioDuration = parseFloat(execSync('ffprobe -v error -show_entries format=duration -of csv=p=0 ' + tmpDir + '/audio.mp3', { timeout: 10000 }).toString().trim());
   if (isNaN(audioDuration) || audioDuration <= 0) throw new Error('Invalid audio duration');
 
-  // Download all VEO3 video clips
+  // Collect video clips (local Ken Burns or remote VEO3)
   const downloadedClips = [];
   for (let i = 0; i < videoClips.length; i++) {
     const clipPath = tmpDir + '/clip_' + String(i).padStart(3, '0') + '.mp4';
     try {
-      await downloadFile(videoClips[i].url, clipPath);
-      if (fs.statSync(clipPath).size > 5000) downloadedClips.push(clipPath);
+      if (videoClips[i].localPath) {
+        // Ken Burns — already a local file
+        fs.copyFileSync(videoClips[i].localPath, clipPath);
+        if (fs.statSync(clipPath).size > 5000) downloadedClips.push(clipPath);
+      } else if (videoClips[i].url) {
+        // VEO3 — download from URL
+        await downloadFile(videoClips[i].url, clipPath);
+        if (fs.statSync(clipPath).size > 5000) downloadedClips.push(clipPath);
+      }
     } catch (_e) {}
   }
-  if (downloadedClips.length === 0) throw new Error('All VEO3 clip downloads failed');
+  if (downloadedClips.length === 0) throw new Error('All clip downloads/copies failed');
 
   // Simple concat — VEO3 clips only, no static image effects
   const concatList = downloadedClips.map(f => "file '" + f + "'").join('\\n');
@@ -714,6 +842,7 @@ try {
     finalSize = fs.statSync(tmpDir + '/final.mp4').size;
   }
 
+  await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'uploading', message: 'Uploading video...' });
   await uploadToSupabase('video', generationId + '.mp4', tmpDir + '/final.mp4', 'video/mp4');
   await uploadToSupabase('thumbnails', generationId + '.jpg', tmpDir + '/thumbnail.jpg', 'image/jpeg');
 
@@ -828,8 +957,10 @@ async function main() {
   console.log('\n--- VERIFICATION ---');
   const allCode = [MP3_HANDLER, DESC_HANDLER, THUMB_HANDLER, VIDEO_PREPARE, VIDEO_ASSEMBLE, ERROR_HANDLER].join('\n');
   const execCode = [MP3_HANDLER, DESC_HANDLER, THUMB_HANDLER, VIDEO_PREPARE, VIDEO_ASSEMBLE, ERROR_HANDLER].join('\n');
-  console.log('zoompan in executable code:', (execCode.match(/zoompan/g) || []).length === 0 ? 'ZERO (PASS)' : 'FOUND (FAIL)');
-  console.log('zoom+0.00 in executable code:', (execCode.match(/zoom\+0\.00/g) || []).length === 0 ? 'ZERO (PASS)' : 'FOUND (FAIL)');
+  console.log('zoompan in Ken Burns only:', VIDEO_PREPARE.includes('kenBurnsFilters') ? 'PASS (Ken Burns)' : 'MISSING');
+  console.log('Imagen support:', VIDEO_PREPARE.includes('generateImagenImage') ? 'PASS' : 'FAIL');
+  console.log('motionTier routing:', VIDEO_PREPARE.includes("motionTier === 'static'") ? 'PASS' : 'FAIL');
+  console.log('YouTube transcript:', DESC_HANDLER.includes('captionTracks') ? 'PASS' : 'FAIL');
   console.log('cleanScriptForTTS in MP3:', MP3_HANDLER.includes('cleanScriptForTTS') ? 'PASS' : 'FAIL');
   console.log('cleanScriptForTTS in VideoPrepare:', VIDEO_PREPARE.includes('cleanScriptForTTS') ? 'PASS' : 'FAIL');
   console.log('generateVEO3Clip in VideoPrepare:', VIDEO_PREPARE.includes('generateVEO3Clip') ? 'PASS' : 'FAIL');

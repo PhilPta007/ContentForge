@@ -37,12 +37,12 @@ export const IMAGE_PROVIDERS: Record<ImageTier, ProviderConfig> = {
   premium: {
     provider: 'Google',
     model: 'imagen-4.0-generate-001',
-    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:generateImage',
+    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict',
   },
   ultra: {
     provider: 'Google',
     model: 'imagen-4.0-ultra-generate-001',
-    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-ultra-generate-001:generateImage',
+    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-ultra-generate-001:predict',
   },
 } as const;
 
