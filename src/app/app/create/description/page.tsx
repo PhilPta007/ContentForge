@@ -1,4 +1,7 @@
+import type { Metadata } from 'next';
 import { DescriptionForm } from '@/components/create/forms/description-form';
+
+export const metadata: Metadata = { title: 'Create Description' };
 
 export default function DescriptionPage() {
   return (

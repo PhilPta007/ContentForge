@@ -1,4 +1,4 @@
-# ContentForge — Creator Choice Pricing Model
+# StudioStack — Creator Choice Pricing Model
 
 > Deep dive into options-based pricing
 > Created: 2026-03-07
@@ -73,7 +73,7 @@
 |-------------|----------|---------|-----------|--------|
 | **Static** (Ken Burns) | R0 | 0 | R0 | 100% |
 | **AI Motion** (VEO3) | R5.50 | 8 | R12 | 54% |
-| **Premium Motion** (Kling) | R9.50 | 15 | R22.50 | 58% |
+| **Premium Motion** (VEO3) | R5.50 | 8 | R12 | 54% |
 
 ---
 
@@ -118,7 +118,7 @@
 | **Premium Static** | ElevenLabs | Imagen | Ken Burns | 65 | R97.50 |
 | **Budget Motion** | Kokoro | Nano Banana | VEO3 ×10* | 95 | R142.50 |
 | **Standard Motion** | Google | Imagen | VEO3 ×10* | 110 | R165 |
-| **Premium Motion** | ElevenLabs | Imagen | VEO3 ×20 | 225 | R337.50 |
+| **Premium Motion** | ElevenLabs | Imagen | VEO3 ×20 | 224 | R336 |
 | **Ultra Motion** | ElevenLabs | Imagen Ultra | Kling ×20 | 390 | R585 |
 
 *×10 = 1 clip per 2 images, stretched with slowmo
@@ -186,7 +186,7 @@ Based on typical usage patterns:
 ```
 ○ Static (Ken Burns) — FREE
 ● AI Motion (VEO3) — 8 credits/scene  [RECOMMENDED]
-○ Premium Motion (Kling) — 15 credits/scene
+○ Premium Motion (VEO3) — 8 credits/scene
 ```
 
 ### Step 4: Review & Generate
@@ -222,7 +222,7 @@ Based on typical usage patterns:
 | Images - Ultra | 73% |
 | Motion - Static | 100% |
 | Motion - AI | 54% |
-| Motion - Premium | 58% |
+| Motion - Premium | 54% |
 | Descriptions | 93% |
 | Thumbnails | 80-87% |
 

@@ -1,4 +1,7 @@
+import type { Metadata } from 'next';
 import { Mp3Form } from '@/components/create/forms/mp3-form';
+
+export const metadata: Metadata = { title: 'Create MP3' };
 
 export default function Mp3Page() {
   return (

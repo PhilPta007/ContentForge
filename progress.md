@@ -132,3 +132,51 @@
 - [x] `src/app/app/settings/page.tsx` -- Full settings page with Tabs (Profile | Brand Voice | Affiliate Links) replacing stub
 - [x] `src/app/app/settings/brand-voice/page.tsx` -- Dedicated brand voice page with back navigation
 - [x] `src/app/app/settings/links/page.tsx` -- Dedicated affiliate links page with back navigation
+
+---
+
+# Phase 6b Progress (Zod Validation)
+
+## Completed
+
+### Purchase Route Validation
+- [x] `src/app/api/credits/purchase/route.ts` -- Replaced unsafe `as` cast with Zod schema (packId: uuid, paymentMethod: enum). Returns 400 with field errors on failure. Removed redundant manual checks.
+
+### n8n Webhook Validation
+- [x] `src/app/api/webhooks/n8n/route.ts` -- Added Zod schema for callback payload (generationId: uuid, status: enum, outputUrl, metadata with thumbnailUrls array, error, progress). Separate JSON parse error handling. Returns structured 400 on validation failure.
+
+---
+
+# Phase 8 Progress (n8n Workflow Inconsistencies)
+
+## Completed
+
+### 8a. Motion tier pricing equalised
+- [x] `src/lib/credits.ts` -- Changed MOTION_CREDITS premium from 15 to 8 (both ai and premium use VEO3)
+
+### 8b. Kokoro voice name fix
+- [x] `src/lib/providers.ts` -- Changed standard voice from `af_heart` to `am_michael` to match n8n
+
+### 8c. Kie.ai image config fix
+- [x] `src/lib/providers.ts` -- Updated standard image model to `nano-banana-2` and endpoint to `api/v1/jobs/createTask` to match n8n
+
+### 8d. Brand voice field mismatch fix
+- [x] `scripts/fix-n8n-curl.mjs` -- Updated Description Handler to use `brandVoice.audience` + `brandVoice.traits` + `brandVoice.generatedPrompt` instead of non-existent `.style` and `.keywords` fields
+
+### 8e. Fetch timeout for triggerGeneration
+- [x] `src/lib/n8n/trigger.ts` -- Added 15-second AbortController timeout to fetch call
+
+### 8f. Improved error message
+- [x] `src/lib/n8n/trigger.ts` -- Error now includes response status, statusText, and body text
+
+---
+
+# Phase 9 Progress (Thumbnail 3 Options)
+
+## Completed
+
+### Thumbnail handler generates 3 variants
+- [x] `scripts/fix-n8n-curl.mjs` -- Thumbnail Handler now generates 3 images with varied compositions (close-up, wide shot, dramatic angle), uploads each to Supabase, sends thumbnailUrls array in callback metadata
+
+### Webhook handles thumbnailUrls array
+- [x] `src/app/api/webhooks/n8n/route.ts` -- Zod schema includes optional `thumbnailUrls: string[]` in metadata. When present, stored in output_metadata for thumbnail generations.

@@ -12,7 +12,7 @@ export const VOICE_PROVIDERS: Record<VoiceTier, ProviderConfig> = {
     provider: 'Kokoro',
     model: 'kokoro-v1',
     endpoint: 'http://31.97.118.216:5099/tts',
-    voice: 'af_heart',
+    voice: 'am_michael',
   },
   premium: {
     provider: 'Google',
@@ -31,8 +31,8 @@ export const VOICE_PROVIDERS: Record<VoiceTier, ProviderConfig> = {
 export const IMAGE_PROVIDERS: Record<ImageTier, ProviderConfig> = {
   standard: {
     provider: 'Kie.ai',
-    model: 'nano-banana',
-    endpoint: 'https://api.kie.ai/api/v1/generate',
+    model: 'nano-banana-2',
+    endpoint: 'https://api.kie.ai/api/v1/jobs/createTask',
   },
   premium: {
     provider: 'Google',

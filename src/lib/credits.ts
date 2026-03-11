@@ -15,7 +15,7 @@ export const IMAGE_CREDITS: Record<ImageTier, number> = {
 export const MOTION_CREDITS: Record<MotionTier, number> = {
   static: 0,
   ai: 8,
-  premium: 15,
+  premium: 8,
 } as const;
 
 export const FIXED_CREDITS = {

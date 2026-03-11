@@ -1,4 +1,7 @@
+import type { Metadata } from 'next';
 import { VideoForm } from '@/components/create/forms/video-form';
+
+export const metadata: Metadata = { title: 'Create Video' };
 
 export default function VideoPage() {
   return (

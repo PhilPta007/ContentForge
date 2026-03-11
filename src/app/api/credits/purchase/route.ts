@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createPayFastUrl } from '@/lib/payfast';
 import { createPayPalOrder } from '@/lib/paypal';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import type { CreditPack } from '@/lib/types';
+
+const purchaseSchema = z.object({
+  packId: z.string().uuid(),
+  paymentMethod: z.enum(['payfast', 'paypal']),
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,25 +23,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { success: withinLimit } = rateLimit(getClientIp(request), 10, 60_000);
+    if (!withinLimit) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+
     const body = await request.json();
-    const { packId, paymentMethod } = body as {
-      packId: string;
-      paymentMethod: 'payfast' | 'paypal';
-    };
+    const parsed = purchaseSchema.safeParse(body);
 
-    if (!packId || !paymentMethod) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Missing packId or paymentMethod' },
+        { error: 'Invalid request', details: parsed.error.flatten().fieldErrors },
         { status: 400 }
       );
     }
 
-    if (paymentMethod !== 'payfast' && paymentMethod !== 'paypal') {
-      return NextResponse.json(
-        { error: 'Invalid payment method' },
-        { status: 400 }
-      );
-    }
+    const { packId, paymentMethod } = parsed.data;
 
     const { data: pack, error: packError } = await supabase
       .from('credit_packs')

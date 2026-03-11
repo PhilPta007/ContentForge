@@ -1,6 +1,9 @@
+import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { JobList } from '@/components/jobs/job-list';
 import { Skeleton } from '@/components/ui/skeleton';
+
+export const metadata: Metadata = { title: 'Jobs' };
 
 function JobListFallback() {
   return (

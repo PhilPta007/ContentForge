@@ -3,8 +3,9 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { FIXED_CREDITS } from '@/lib/credits';
-import { deductCredits } from '@/lib/credits-service';
+import { deductCredits, addCredits } from '@/lib/credits-service';
 import { triggerGeneration } from '@/lib/n8n/trigger';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 const bodySchema = z.object({
   topic: z.string().min(1).max(500),
@@ -20,6 +21,11 @@ export async function POST(request: Request) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { success: withinLimit } = rateLimit(getClientIp(request), 20, 60_000);
+    if (!withinLimit) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }
 
     const body = await request.json();
@@ -103,6 +109,7 @@ export async function POST(request: Request) {
         .from('generations')
         .update({ status: 'failed', error_message: 'Failed to trigger n8n workflow' })
         .eq('id', generation.id);
+      await addCredits(user.id, creditsNeeded, 'refund', `Refund: Description generation failed`, generation.id);
     });
 
     return NextResponse.json({

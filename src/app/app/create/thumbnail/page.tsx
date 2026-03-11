@@ -1,4 +1,7 @@
+import type { Metadata } from 'next';
 import { ThumbnailForm } from '@/components/create/forms/thumbnail-form';
+
+export const metadata: Metadata = { title: 'Create Thumbnail' };
 
 export default function ThumbnailPage() {
   return (

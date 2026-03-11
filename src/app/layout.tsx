@@ -10,8 +10,28 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'StudioStack',
-  description: 'AI-powered content creation platform',
+  metadataBase: new URL('https://studiostack.vercel.app'),
+  title: {
+    default: 'StudioStack',
+    template: '%s | StudioStack',
+  },
+  description:
+    'Create podcasts, videos, SEO descriptions, and thumbnails with AI. Pay-as-you-go credits, no subscriptions.',
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://studiostack.vercel.app',
+    siteName: 'StudioStack',
+    title: 'StudioStack — AI-Powered Content for Creators',
+    description:
+      'Create podcasts, videos, SEO descriptions, and thumbnails with AI. Pay-as-you-go credits, no subscriptions.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'StudioStack — AI-Powered Content for Creators',
+    description:
+      'Create podcasts, videos, SEO descriptions, and thumbnails with AI. Pay-as-you-go credits, no subscriptions.',
+  },
 };
 
 export default function RootLayout({

@@ -18,8 +18,8 @@ function env(key) {
   return match[1].trim();
 }
 
-// n8n API key (for n8n REST API, not a Google key — safe to keep here)
-const N8N_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjODYxNGNmZi1iNGRmLTQ5NTEtYWQ1NS1jMmNiZWVkNDVjZDMiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzcwNjYwNDc4fQ.BTN2oI9RULuaNKRsqTRaUQh5MCuur42vMrJg328n-fM';
+// n8n API key (loaded from .env.local via env() helper)
+const N8N_KEY = env('N8N_API_TOKEN');
 const N8N_URL = 'https://srv1319171.hstgr.cloud';
 const WORKFLOW_ID = 'JRKIyos4VFfmWw1D';
 
@@ -406,8 +406,9 @@ try {
 
   let brandInstructions = '';
   if (brandVoice) {
-    brandInstructions = '\\n\\nBrand Voice: Tone=' + (brandVoice.tone || 'professional') + ', Style=' + (brandVoice.style || 'informative');
-    if (brandVoice.keywords) brandInstructions += ', Keywords: ' + (Array.isArray(brandVoice.keywords) ? brandVoice.keywords.join(', ') : brandVoice.keywords);
+    brandInstructions = '\\n\\nBrand Voice: Tone=' + (brandVoice.tone || 'professional') + ', Audience=' + (brandVoice.audience || 'mixed');
+    if (brandVoice.traits && Array.isArray(brandVoice.traits) && brandVoice.traits.length > 0) brandInstructions += ', Traits: ' + brandVoice.traits.join(', ');
+    if (brandVoice.generatedPrompt) brandInstructions += '\\nStyle guide: ' + brandVoice.generatedPrompt;
   }
 
   let affiliateInstructions = '';
@@ -466,57 +467,66 @@ const tmpDir = '/tmp/ss_' + generationId;
 
 try {
   fs.mkdirSync(tmpDir, { recursive: true });
-  await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'generating_thumbnail', message: 'Generating thumbnail...' });
-  const prompt = 'YouTube thumbnail for: ' + topic + '. South African context. ' + (style ? 'Style: ' + style + '. ' : '') + 'Eye-catching, bold, high contrast, professional YouTube thumbnail, 16:9 aspect ratio, vibrant colors, clear focal point, cinematic quality.';
+  await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'generating_thumbnail', message: 'Generating 3 thumbnail options...' });
 
-  if (imageTier === 'premium' || imageTier === 'ultra') {
-    // Google Imagen 4.0 / Ultra
-    const model = imageTier === 'ultra' ? 'imagen-4.0-ultra-generate-001' : 'imagen-4.0-generate-001';
-    const imgBuf = await generateImagenImage(this.helpers, GOOGLE_API_KEY, prompt, model);
-    fs.writeFileSync(tmpDir + '/thumb.jpg', imgBuf);
-  } else {
-    // Kie.ai Nano Banana 2 (standard)
-    const createResp = await this.helpers.httpRequest({
-      method: 'POST',
-      url: 'https://api.kie.ai/api/v1/jobs/createTask',
-      headers: { 'Authorization': 'Bearer ' + KIE_API_KEY, 'Content-Type': 'application/json' },
-      body: { model: 'nano-banana-2', input: { prompt: prompt.substring(0, 300), aspect_ratio: '16:9', resolution: '1K', output_format: 'jpg' } },
-      json: true, timeout: 30000
-    });
-    if (!createResp.data || !createResp.data.taskId) throw new Error('Kie.ai returned no taskId');
-    const taskId = createResp.data.taskId;
+  const compositions = ['close-up portrait shot', 'wide establishing shot', 'dramatic low angle'];
+  const thumbnailUrls = [];
 
-    let imageUrl = null;
-    for (let poll = 0; poll < 18; poll++) {
-      await new Promise(r => setTimeout(r, 5000));
-      const statusResp = await this.helpers.httpRequest({
-        method: 'GET',
-        url: 'https://api.kie.ai/api/v1/jobs/recordInfo?taskId=' + taskId,
-        headers: { 'Authorization': 'Bearer ' + KIE_API_KEY },
-        json: true, timeout: 10000
+  for (let vi = 0; vi < 3; vi++) {
+    const prompt = 'YouTube thumbnail for: ' + topic + '. ' + compositions[vi] + '. South African context. ' + (style ? 'Style: ' + style + '. ' : '') + 'Eye-catching, bold, high contrast, professional YouTube thumbnail, 16:9 aspect ratio, vibrant colors, clear focal point, cinematic quality.';
+    const thumbPath = tmpDir + '/thumb_' + vi + '.jpg';
+
+    if (imageTier === 'premium' || imageTier === 'ultra') {
+      const model = imageTier === 'ultra' ? 'imagen-4.0-ultra-generate-001' : 'imagen-4.0-generate-001';
+      const imgBuf = await generateImagenImage(this.helpers, GOOGLE_API_KEY, prompt, model);
+      fs.writeFileSync(thumbPath, imgBuf);
+    } else {
+      const createResp = await this.helpers.httpRequest({
+        method: 'POST',
+        url: 'https://api.kie.ai/api/v1/jobs/createTask',
+        headers: { 'Authorization': 'Bearer ' + KIE_API_KEY, 'Content-Type': 'application/json' },
+        body: { model: 'nano-banana-2', input: { prompt: prompt.substring(0, 300), aspect_ratio: '16:9', resolution: '1K', output_format: 'jpg' } },
+        json: true, timeout: 30000
       });
-      const state = statusResp.data && statusResp.data.state;
-      if (state === 'success') {
-        const result = JSON.parse(statusResp.data.resultJson || '{}');
-        if (result.resultUrls && result.resultUrls[0]) imageUrl = result.resultUrls[0];
-        break;
+      if (!createResp.data || !createResp.data.taskId) throw new Error('Kie.ai returned no taskId for variant ' + vi);
+      const taskId = createResp.data.taskId;
+
+      let imageUrl = null;
+      for (let poll = 0; poll < 18; poll++) {
+        await new Promise(r => setTimeout(r, 5000));
+        const statusResp = await this.helpers.httpRequest({
+          method: 'GET',
+          url: 'https://api.kie.ai/api/v1/jobs/recordInfo?taskId=' + taskId,
+          headers: { 'Authorization': 'Bearer ' + KIE_API_KEY },
+          json: true, timeout: 10000
+        });
+        const state = statusResp.data && statusResp.data.state;
+        if (state === 'success') {
+          const result = JSON.parse(statusResp.data.resultJson || '{}');
+          if (result.resultUrls && result.resultUrls[0]) imageUrl = result.resultUrls[0];
+          break;
+        }
+        if (state === 'fail') throw new Error('Kie.ai failed for variant ' + vi + ': ' + (statusResp.data.failMsg || 'unknown'));
       }
-      if (state === 'fail') throw new Error('Kie.ai failed: ' + (statusResp.data.failMsg || 'unknown'));
+      if (!imageUrl) throw new Error('Kie.ai thumbnail variant ' + vi + ' timed out after 90s');
+      await downloadFile(imageUrl, thumbPath);
     }
-    if (!imageUrl) throw new Error('Kie.ai thumbnail timed out after 90s');
-    await downloadFile(imageUrl, tmpDir + '/thumb.jpg');
+
+    if (fs.existsSync(thumbPath) && fs.statSync(thumbPath).size > 1000) {
+      await uploadToSupabase('thumbnails', generationId + '_' + vi + '.jpg', thumbPath, 'image/jpeg');
+      thumbnailUrls.push(SUPABASE_URL + '/storage/v1/object/public/thumbnails/' + generationId + '_' + vi + '.jpg');
+    }
+
+    await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'generating_thumbnail', current: vi + 1, total: 3, message: 'Generated thumbnail ' + (vi + 1) + ' of 3...' });
   }
 
-  const imgStat = fs.statSync(tmpDir + '/thumb.jpg');
-  if (imgStat.size < 1000) throw new Error('Image too small: ' + imgStat.size + ' bytes');
+  if (thumbnailUrls.length === 0) throw new Error('All 3 thumbnail variants failed');
 
-  await uploadToSupabase('thumbnails', generationId + '.jpg', tmpDir + '/thumb.jpg', 'image/jpeg');
-
-  const outputUrl = SUPABASE_URL + '/storage/v1/object/public/thumbnails/' + generationId + '.jpg';
-  await sendCallback(this.helpers, callbackUrl, generationId, 'complete', outputUrl, { format: 'jpg', fileSize: imgStat.size });
+  const outputUrl = thumbnailUrls[0];
+  await sendCallback(this.helpers, callbackUrl, generationId, 'complete', outputUrl, { format: 'jpg', thumbnailUrls: thumbnailUrls });
 
   fs.rmSync(tmpDir, { recursive: true, force: true });
-  return [{ json: { success: true, generationId, outputUrl } }];
+  return [{ json: { success: true, generationId, outputUrl, thumbnailUrls } }];
 } catch (e) {
   try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_e) {}
   await sendCallback(this.helpers, callbackUrl, generationId, 'failed', undefined, undefined, e.message);

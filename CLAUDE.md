@@ -11,7 +11,7 @@ StudioStack is an AI-powered SaaS content creation platform for podcasters and Y
 - **Frontend:** Next.js 14+ (App Router, Server Components, Server Actions), TypeScript (strict), TailwindCSS v4 (CSS-based config, NOT tailwind.config.ts), Zustand, React Hook Form, Zod, shadcn/ui, Lucide React
 - **Backend:** Supabase (Auth, PostgreSQL, Storage, Edge Functions, Realtime) with RLS always enabled
 - **Payments:** PayFast (South Africa/ZAR) + PayPal (International/USD)
-- **AI Services:** Claude (scripts/descriptions), Kokoro on VPS (standard TTS), Google WaveNet (premium TTS), ElevenLabs (ultra TTS), fal.ai Flux (standard/premium/ultra images), Kie.ai VEO3 Fast (AI motion), fal.ai Kling 1.5 (premium motion)
+- **AI Services:** Claude (scripts/descriptions), Kokoro on VPS (standard TTS), Google WaveNet (premium TTS), ElevenLabs (ultra TTS), fal.ai Flux (standard/premium/ultra images), Kie.ai VEO3 Fast (AI + premium motion)
 - **Workflow:** n8n handles heavy AI processing pipelines (script → TTS → images → video assembly)
 - **Hosting:** Vercel (web app), Supabase (DB/auth/storage), VPS (n8n + Kokoro TTS)
 
@@ -44,7 +44,7 @@ Three route groups with separate layouts:
 
 ### Core Libraries (src/lib/)
 
-- `credits.ts` — Credit cost constants per tier and `calculateCredits()` function. Voice costs are per-minute, image costs per-image, motion costs per-clip. VEO3 generates 1 clip per 2 scenes (stretched); Kling does 1:1.
+- `credits.ts` — Credit cost constants per tier and `calculateCredits()` function. Voice costs are per-minute, image costs per-image, motion costs per-clip. VEO3 generates 1 clip per 2 scenes (stretched). Both AI and premium motion use VEO3.
 - `tones.ts` — Content tone definitions (sleep, asmr, storytelling, documentary, etc.) with prompt modifiers and TTS speed settings
 - `providers.ts` — Maps quality tiers to specific AI provider endpoints/models
 - `payfast.ts` — PayFast signature generation and checkout URL construction

@@ -1,4 +1,4 @@
-# ContentForge — Complete Build Prompt
+# StudioStack — Complete Build Prompt
 
 > Copy this entire file into Claude Code to build the project
 > Created: 2026-03-07
@@ -7,7 +7,7 @@
 
 ## PERSONA & CONTEXT
 
-You are an expert full-stack engineer building a SaaS application called **ContentForge** — the "Creator's Heaven" for podcasters and YouTube storytellers.
+You are an expert full-stack engineer building a SaaS application called **StudioStack** — the "Creator's Heaven" for podcasters and YouTube storytellers.
 
 Your responsibilities:
 - Build production-ready code with enterprise-grade error handling
@@ -21,9 +21,9 @@ Your responsibilities:
 
 ## PROJECT OVERVIEW
 
-**Project Name:** ContentForge
+**Project Name:** StudioStack
 
-**Description:** ContentForge is an AI-powered content creation platform that lets creators generate:
+**Description:** StudioStack is an AI-powered content creation platform that lets creators generate:
 - MP3 podcast episodes
 - YouTube videos (static Ken Burns or AI motion)
 - SEO-optimized descriptions with brand voice
@@ -914,7 +914,7 @@ export function createPayFastUrl(
     email_address: userEmail,
     m_payment_id: `${userId}-${packId}-${Date.now()}`,
     amount: amountZar.toFixed(2),
-    item_name: `ContentForge ${packName} Credits`,
+    item_name: `StudioStack ${packName} Credits`,
     custom_str1: userId,
     custom_str2: packId,
   };
@@ -960,7 +960,7 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
 
 # Email
 RESEND_API_KEY=
-EMAIL_FROM=noreply@contentforge.com
+EMAIL_FROM=noreply@studiostack.com
 
 # AI Services
 ANTHROPIC_API_KEY=
@@ -974,8 +974,8 @@ N8N_WEBHOOK_URL=
 N8N_WEBHOOK_SECRET=
 
 # App
-NEXT_PUBLIC_APP_URL=https://contentforge.com
-NEXT_PUBLIC_APP_NAME=ContentForge
+NEXT_PUBLIC_APP_URL=https://studiostack.com
+NEXT_PUBLIC_APP_NAME=StudioStack
 
 # VPS (Kokoro TTS)
 KOKORO_ENDPOINT=http://31.97.118.216:5099

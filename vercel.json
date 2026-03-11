@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/cron/stale-jobs", "schedule": "*/10 * * * *" }
+  ]
+}

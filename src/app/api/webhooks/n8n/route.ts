@@ -1,28 +1,31 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { addCredits } from '@/lib/credits-service';
 
-interface ProgressInfo {
-  stage: string;
-  current?: number;
-  total?: number;
-  message: string;
-}
+const progressSchema = z.object({
+  stage: z.string(),
+  current: z.number().optional(),
+  total: z.number().optional(),
+  message: z.string(),
+});
 
-interface CallbackPayload {
-  generationId: string;
-  status: string;
-  outputUrl?: string;
-  metadata?: {
-    duration?: number;
-    fileSize?: number;
-    format?: string;
-    thumbnailUrl?: string;
-    clipCount?: number;
-  };
-  error?: string;
-  progress?: ProgressInfo;
-}
+const callbackSchema = z.object({
+  generationId: z.string().uuid(),
+  status: z.enum(['pending', 'processing', 'complete', 'failed']),
+  outputUrl: z.string().url().optional(),
+  metadata: z.object({
+    duration: z.number().optional(),
+    fileSize: z.number().optional(),
+    format: z.string().optional(),
+    thumbnailUrl: z.string().url().optional(),
+    thumbnailUrls: z.array(z.string().url()).optional(),
+    clipCount: z.number().optional(),
+    description: z.string().optional(),
+  }).optional(),
+  error: z.string().optional(),
+  progress: progressSchema.optional(),
+});
 
 export async function POST(request: Request) {
   const secret = request.headers.get('X-Webhook-Secret');
@@ -30,8 +33,24 @@ export async function POST(request: Request) {
     return new NextResponse('Unauthorized', { status: 401 });
   }
 
+  let rawPayload: unknown;
   try {
-    const payload: CallbackPayload = await request.json();
+    rawPayload = await request.json();
+  } catch {
+    return new NextResponse('Invalid JSON', { status: 400 });
+  }
+
+  const parsed = callbackSchema.safeParse(rawPayload);
+  if (!parsed.success) {
+    return new NextResponse(
+      JSON.stringify({ error: 'Invalid payload', details: parsed.error.flatten().fieldErrors }),
+      { status: 400, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const payload = parsed.data;
+
+  try {
     const admin = createAdminClient();
 
     const updateData: Record<string, unknown> = {
@@ -47,6 +66,14 @@ export async function POST(request: Request) {
       updateData.output_metadata = payload.metadata ?? null;
       updateData.completed_at = new Date().toISOString();
       updateData.progress = null;
+    }
+
+    // For thumbnail generations, store the thumbnailUrls array in output_metadata
+    if (payload.metadata?.thumbnailUrls && payload.metadata.thumbnailUrls.length > 0) {
+      updateData.output_metadata = {
+        ...payload.metadata,
+        thumbnailUrls: payload.metadata.thumbnailUrls,
+      };
     }
 
     if (payload.error) {
@@ -85,6 +112,6 @@ export async function POST(request: Request) {
 
     return new NextResponse('OK');
   } catch {
-    return new NextResponse('Invalid payload', { status: 400 });
+    return new NextResponse('Internal error', { status: 500 });
   }
 }
