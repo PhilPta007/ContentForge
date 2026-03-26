@@ -6,6 +6,7 @@ import { Mp3Form } from '@/components/create/forms/mp3-form';
 import { VideoForm } from '@/components/create/forms/video-form';
 import { DescriptionForm } from '@/components/create/forms/description-form';
 import { ThumbnailForm } from '@/components/create/forms/thumbnail-form';
+import { SocialForm } from '@/components/create/forms/social-form';
 import type { GenerationType } from '@/lib/types';
 
 export function CreatePage() {
@@ -26,6 +27,7 @@ export function CreatePage() {
       {selectedType === 'video' && <VideoForm />}
       {selectedType === 'description' && <DescriptionForm />}
       {selectedType === 'thumbnail' && <ThumbnailForm />}
+      {selectedType === 'social' && <SocialForm />}
     </div>
   );
 }

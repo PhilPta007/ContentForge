@@ -41,7 +41,7 @@ CREATE TABLE public.credit_packs (
 CREATE TABLE public.generations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  type TEXT NOT NULL CHECK (type IN ('mp3', 'video', 'description', 'thumbnail')),
+  type TEXT NOT NULL CHECK (type IN ('mp3', 'video', 'description', 'thumbnail', 'social')),
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'complete', 'failed')),
   credits_used INTEGER NOT NULL,
   input_topic TEXT NOT NULL,
@@ -57,6 +57,7 @@ CREATE TABLE public.generations (
   output_url TEXT,
   output_metadata JSONB,
   error_message TEXT,
+  progress JSONB,
   started_at TIMESTAMPTZ,
   completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL

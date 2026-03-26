@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Headphones, Video, FileText, Image } from 'lucide-react';
+import { ArrowLeft, Headphones, Video, FileText, Image, Share2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useUserStore } from '@/stores/user-store';
 import { Spinner } from '@/components/shared/loading';
 import { AssetPlayer } from '@/components/library/asset-player';
 import { DownloadButton } from '@/components/library/download-button';
+import { SocialPostsDisplay } from '@/components/library/social-posts-display';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -16,13 +17,14 @@ import {
   TableCell,
   TableRow,
 } from '@/components/ui/table';
-import type { Generation, GenerationType } from '@/lib/types';
+import type { Generation, GenerationType, SocialOutput } from '@/lib/types';
 
 const TYPE_ICONS: Record<GenerationType, typeof Headphones> = {
   mp3: Headphones,
   video: Video,
   description: FileText,
   thumbnail: Image,
+  social: Share2,
 };
 
 const TYPE_LABELS: Record<GenerationType, string> = {
@@ -30,6 +32,7 @@ const TYPE_LABELS: Record<GenerationType, string> = {
   video: 'Video',
   description: 'SEO Description',
   thumbnail: 'Thumbnail',
+  social: 'Social Posts',
 };
 
 function formatDate(dateStr: string | null): string {
@@ -183,7 +186,13 @@ export default function AssetDetailPage() {
         </div>
       </div>
 
-      <AssetPlayer generation={generation} />
+      {generation.type === 'social' && generation.output_metadata?.posts ? (
+        <SocialPostsDisplay
+          output={generation.output_metadata as unknown as SocialOutput}
+        />
+      ) : (
+        <AssetPlayer generation={generation} />
+      )}
 
       <DownloadButton
         url={generation.output_url}

@@ -93,7 +93,25 @@ export type GenerationConfig = {
 export type VoiceTier = 'standard' | 'premium' | 'ultra';
 export type ImageTier = 'standard' | 'premium' | 'ultra';
 export type MotionTier = 'static' | 'ai' | 'premium';
-export type GenerationType = 'mp3' | 'video' | 'description' | 'thumbnail';
+export type GenerationType = 'mp3' | 'video' | 'description' | 'thumbnail' | 'social';
+
+export type SocialPlatform = 'twitter' | 'linkedin' | 'instagram' | 'facebook' | 'threads';
+
+export type SocialPost = {
+  platform: SocialPlatform;
+  content: string;
+  characterCount: number;
+  hashtags?: string[];
+  suggestedImagePrompt?: string;
+};
+
+export type SocialOutput = {
+  posts: SocialPost[];
+  sourceType: 'url' | 'text';
+  sourceUrl?: string;
+  extractedTitle?: string;
+  extractedKeyPoints?: string[];
+};
 export type ContentTone = 'sleep' | 'asmr' | 'bedtime_story' | 'storytelling' | 'documentary' | 'educational' | 'podcast' | 'youtube_hype';
 export type TransactionType = 'purchase' | 'generation' | 'refund' | 'bonus';
 export type GenerationStatus = 'pending' | 'processing' | 'complete' | 'failed';

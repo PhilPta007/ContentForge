@@ -10,6 +10,7 @@ const DOWNLOAD_LABELS: Record<GenerationType, string> = {
   video: 'Download Video',
   description: 'Download Text',
   thumbnail: 'Download Image',
+  social: 'Copy Posts',
 };
 
 interface DownloadButtonProps {

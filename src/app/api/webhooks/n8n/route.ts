@@ -13,7 +13,7 @@ const progressSchema = z.object({
 const callbackSchema = z.object({
   generationId: z.string().uuid(),
   status: z.enum(['pending', 'processing', 'complete', 'failed']),
-  outputUrl: z.string().url().optional(),
+  outputUrl: z.string().url().nullish(),
   metadata: z.object({
     duration: z.number().optional(),
     fileSize: z.number().optional(),
@@ -22,9 +22,21 @@ const callbackSchema = z.object({
     thumbnailUrls: z.array(z.string().url()).optional(),
     clipCount: z.number().optional(),
     description: z.string().optional(),
-  }).optional(),
-  error: z.string().optional(),
-  progress: progressSchema.optional(),
+    // Social posts output
+    posts: z.array(z.object({
+      platform: z.string(),
+      content: z.string(),
+      characterCount: z.number(),
+      hashtags: z.array(z.string()).optional(),
+      suggestedImagePrompt: z.string().optional(),
+    })).optional(),
+    sourceType: z.enum(['url', 'text']).optional(),
+    sourceUrl: z.string().optional(),
+    extractedTitle: z.string().optional(),
+    extractedKeyPoints: z.array(z.string()).optional(),
+  }).nullish(),
+  error: z.string().nullish(),
+  progress: progressSchema.nullish(),
 });
 
 export async function POST(request: Request) {
@@ -110,8 +122,8 @@ export async function POST(request: Request) {
       }
     }
 
-    return new NextResponse('OK');
+    return NextResponse.json({ ok: true });
   } catch {
-    return new NextResponse('Internal error', { status: 500 });
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

@@ -1,9 +1,15 @@
 export interface GenerationPayload {
   generationId: string;
   userId: string;
-  type: 'mp3' | 'video' | 'description' | 'thumbnail';
+  type: 'mp3' | 'video' | 'description' | 'thumbnail' | 'social';
 
   topic: string;
+
+  // Social-specific fields
+  inputType?: 'url' | 'text';
+  sourceUrl?: string;
+  sourceText?: string;
+  platforms?: string[];
   duration?: number;
   tone?: 'sleep' | 'asmr' | 'bedtime_story' | 'storytelling' | 'documentary' | 'educational' | 'podcast' | 'youtube_hype';
 

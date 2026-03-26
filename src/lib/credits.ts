@@ -21,6 +21,7 @@ export const MOTION_CREDITS: Record<MotionTier, number> = {
 export const FIXED_CREDITS = {
   description: 5,
   thumbnail: 8,
+  social: 10,
 } as const;
 
 export function calculateCredits(config: GenerationConfig): number {
@@ -32,6 +33,9 @@ export function calculateCredits(config: GenerationConfig): number {
 
     case 'thumbnail':
       return FIXED_CREDITS.thumbnail;
+
+    case 'social':
+      return FIXED_CREDITS.social;
 
     case 'mp3': {
       if (!voiceTier) return 0;

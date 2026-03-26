@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Headphones, Video, FileText, Image } from 'lucide-react';
+import { Headphones, Video, FileText, Image, Share2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import type { Generation, GenerationType } from '@/lib/types';
 
@@ -28,6 +28,11 @@ const TYPE_CONFIG: Record<
     icon: Image,
     label: 'Thumbnail',
     gradient: 'from-amber-900/40 to-amber-800/20',
+  },
+  social: {
+    icon: Share2,
+    label: 'Social',
+    gradient: 'from-cyan-900/40 to-cyan-800/20',
   },
 };
 

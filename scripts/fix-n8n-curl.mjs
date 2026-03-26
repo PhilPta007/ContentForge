@@ -39,13 +39,13 @@ const CB_SECRET = '${env('N8N_WEBHOOK_SECRET')}';`;
 const CALLBACK_FN = `
 async function sendCallback(helpers, callbackUrl, generationId, status, outputUrl, metadata, error, progress) {
   try {
-    await helpers.httpRequest({
-      method: 'POST', url: callbackUrl,
-      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': CB_SECRET },
-      body: { generationId, status, outputUrl, metadata, error, progress: progress || null },
-      json: true, timeout: 15000
-    });
-  } catch (_e) { /* callback failed - don't block pipeline */ }
+    const payload = JSON.stringify({ generationId, status, outputUrl, metadata, error, progress: progress || null });
+    await httpBinaryRequest(callbackUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Webhook-Secret': CB_SECRET, 'Content-Length': Buffer.byteLength(payload) },
+      timeout: 15000
+    }, Buffer.from(payload));
+  } catch (_e) { console.error('sendCallback failed:', _e.message); }
 }`;
 
 // ─── TTS Preprocessing (strips markdown for clean speech) ────
@@ -947,9 +947,147 @@ try {
 
 
 // ═══════════════════════════════════════════════════════════════
+// Social Posts Handler
+// ═══════════════════════════════════════════════════════════════
+const SOCIAL_HANDLER = `${CONSTANTS}
+${CALLBACK_FN}
+${BINARY_HELPERS}
+
+const data = $('Webhook').first().json.body;
+const { generationId, inputType, sourceUrl, sourceText, platforms, callbackUrl } = data;
+
+try {
+  await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'analyzing_content', message: 'Analyzing content...' });
+
+  let content = sourceText || '';
+  let extractedTitle = '';
+
+  // If URL, fetch and extract content
+  if (inputType === 'url' && sourceUrl) {
+    try {
+      const pageHtml = await this.helpers.httpRequest({
+        method: 'GET',
+        url: sourceUrl,
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        timeout: 15000
+      });
+      if (typeof pageHtml === 'string') {
+        // Extract title
+        const titleMatch = pageHtml.match(/<title[^>]*>([^<]+)<\\/title>/i);
+        if (titleMatch) extractedTitle = titleMatch[1].trim();
+
+        // Extract og:title as fallback
+        if (!extractedTitle) {
+          const ogMatch = pageHtml.match(/<meta[^>]+property="og:title"[^>]+content="([^"]+)"/i);
+          if (ogMatch) extractedTitle = ogMatch[1].trim();
+        }
+
+        // Strip HTML tags, scripts, styles to get text content
+        content = pageHtml
+          .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, '')
+          .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, '')
+          .replace(/<nav[^>]*>[\\s\\S]*?<\\/nav>/gi, '')
+          .replace(/<footer[^>]*>[\\s\\S]*?<\\/footer>/gi, '')
+          .replace(/<header[^>]*>[\\s\\S]*?<\\/header>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/&[a-z]+;/gi, ' ')
+          .replace(/\\s+/g, ' ')
+          .trim();
+      }
+    } catch (_e) {
+      if (!content) throw new Error('Failed to fetch URL content: ' + _e.message);
+    }
+  }
+
+  if (!content || content.length < 50) {
+    throw new Error('Insufficient content to generate social posts (minimum 50 characters)');
+  }
+
+  // Truncate content for prompt (keep under token limits)
+  const truncatedContent = content.substring(0, 6000);
+
+  await sendCallback(this.helpers, callbackUrl, generationId, 'processing', undefined, undefined, undefined, { stage: 'generating_posts', message: 'Generating ' + platforms.length + ' platform posts...' });
+
+  const platformSpecs = {
+    twitter: 'Twitter/X post. STRICT max 280 characters. Punchy, engaging, shareable. Include 2-3 relevant hashtags within the character limit.',
+    linkedin: 'LinkedIn post. Professional tone, up to 3000 characters. Start with an attention-grabbing hook line. Use line breaks for readability. End with a question or CTA to drive engagement. Include 3-5 hashtags at the end.',
+    instagram: 'Instagram caption. Engaging, emoji-friendly, up to 2200 characters. Start with a hook. Tell a micro-story. End with a CTA. Add 8-15 hashtags at the very end separated by a line break. Also suggest a brief image description.',
+    facebook: 'Facebook post. Conversational, relatable tone. Can be longer. Ask a question to drive comments. No hashtag overload (2-3 max).',
+    threads: 'Threads post. Max 500 characters. Authentic, conversational, like talking to a friend. Brief and punchy. 1-2 hashtags only.'
+  };
+
+  const platformPrompts = platforms.map(p => platformSpecs[p] || p).join('\\n- ');
+
+  const prompt = 'You are a social media expert. Given the following content, create optimized posts for each platform.\\n\\n' +
+    (extractedTitle ? 'Source title: ' + extractedTitle + '\\n\\n' : '') +
+    'Content:\\n' + truncatedContent + '\\n\\n' +
+    'Create a post for each of these platforms:\\n- ' + platformPrompts + '\\n\\n' +
+    'CRITICAL RULES:\\n' +
+    '- Each post must be UNIQUE — not just reformatted versions of the same text\\n' +
+    '- Match each platform\\'s culture and audience expectations\\n' +
+    '- Twitter MUST be under 280 characters including hashtags\\n' +
+    '- Threads MUST be under 500 characters\\n' +
+    '- Include hashtags where specified\\n' +
+    '- For Instagram, include a suggestedImagePrompt field\\n\\n' +
+    'Return ONLY valid JSON (no markdown, no code fences):\\n' +
+    '{"posts": [{"platform": "twitter", "content": "...", "characterCount": 142, "hashtags": ["#tag1"]}, ...], "extractedKeyPoints": ["point1", "point2"]}';
+
+  const resp = await this.helpers.httpRequest({
+    method: 'POST',
+    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + GOOGLE_API_KEY,
+    headers: { 'Content-Type': 'application/json' },
+    body: {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.8, maxOutputTokens: 4096, responseMimeType: 'application/json' }
+    },
+    json: true, timeout: 45000
+  });
+
+  let resultText = resp.candidates[0].content.parts[0].text;
+
+  // Clean any markdown fences that might slip through
+  resultText = resultText.replace(/\`\`\`json\\n?/g, '').replace(/\`\`\`\\n?/g, '').trim();
+
+  let result;
+  try {
+    result = JSON.parse(resultText);
+  } catch (parseErr) {
+    throw new Error('Failed to parse AI response as JSON: ' + resultText.substring(0, 300));
+  }
+
+  if (!result.posts || !Array.isArray(result.posts) || result.posts.length === 0) {
+    throw new Error('AI returned no posts: ' + JSON.stringify(result).substring(0, 300));
+  }
+
+  // Validate and fix character counts
+  for (const post of result.posts) {
+    post.characterCount = post.content.length;
+    if (!post.hashtags) post.hashtags = [];
+  }
+
+  const metadata = {
+    posts: result.posts,
+    sourceType: inputType,
+    sourceUrl: inputType === 'url' ? sourceUrl : undefined,
+    extractedTitle: extractedTitle || undefined,
+    extractedKeyPoints: result.extractedKeyPoints || []
+  };
+
+  // Social posts don't need a file URL — store everything in metadata
+  await sendCallback(this.helpers, callbackUrl, generationId, 'complete', null, metadata);
+
+  return [{ json: { success: true, generationId, posts: result.posts } }];
+} catch (e) {
+  await sendCallback(this.helpers, callbackUrl, generationId, 'failed', undefined, undefined, e.message);
+  throw e;
+}`;
+
+
+// ═══════════════════════════════════════════════════════════════
 // Error Handler
 // ═══════════════════════════════════════════════════════════════
 const ERROR_HANDLER = `${CONSTANTS}
+${BINARY_HELPERS}
 ${CALLBACK_FN}
 
 let generationId = 'unknown';
@@ -987,8 +1125,65 @@ async function main() {
     'Thumbnail Handler': THUMB_HANDLER,
     'Video Prepare': VIDEO_PREPARE,
     'Video Assemble': VIDEO_ASSEMBLE,
+    'Social Handler': SOCIAL_HANDLER,
     'Error Handler': ERROR_HANDLER,
   };
+
+  // --- Ensure Social Handler node exists ---
+  const hasSocialNode = workflow.nodes.some(n => n.name === 'Social Handler');
+  if (!hasSocialNode) {
+    console.log('  Adding Social Handler node...');
+    workflow.nodes.push({
+      parameters: { jsCode: SOCIAL_HANDLER, mode: 'runOnceForAllItems' },
+      id: 'cf-social',
+      name: 'Social Handler',
+      type: 'n8n-nodes-base.code',
+      typeVersion: 2,
+      position: [550, 1100],
+      onError: 'continueErrorOutput',
+    });
+  }
+
+  // --- Ensure Switch has 'social' route ---
+  const switchNode = workflow.nodes.find(n => n.name === 'Route by Type');
+  if (switchNode) {
+    const hasSocialRoute = switchNode.parameters.rules.values.some(
+      r => r.outputKey === 'Social'
+    );
+    if (!hasSocialRoute) {
+      console.log('  Adding Social route to switch...');
+      switchNode.parameters.rules.values.push({
+        conditions: {
+          options: { caseSensitive: true, leftValue: '', typeValidation: 'strict' },
+          conditions: [{
+            id: 'type-social',
+            leftValue: '={{ $json.body.type }}',
+            rightValue: 'social',
+            operator: { type: 'string', operation: 'equals' },
+          }],
+          combinator: 'and',
+        },
+        renameOutput: true,
+        outputKey: 'Social',
+      });
+    }
+  }
+
+  // --- Ensure connections for Social Handler ---
+  if (!workflow.connections['Route by Type'].main[4]) {
+    console.log('  Wiring Social Handler connections...');
+    // Switch output index 4 → Social Handler
+    workflow.connections['Route by Type'].main[4] = [{
+      node: 'Social Handler', type: 'main', index: 0,
+    }];
+    // Social Handler success (output 0) → empty, error (output 1) → Error Handler
+    workflow.connections['Social Handler'] = {
+      main: [
+        [],
+        [{ node: 'Error Handler', type: 'main', index: 0 }],
+      ],
+    };
+  }
 
   let updated = 0;
   for (const node of workflow.nodes) {
@@ -1038,8 +1233,8 @@ async function main() {
 
   // Verification
   console.log('\n--- VERIFICATION ---');
-  const allCode = [MP3_HANDLER, DESC_HANDLER, THUMB_HANDLER, VIDEO_PREPARE, VIDEO_ASSEMBLE, ERROR_HANDLER].join('\n');
-  const execCode = [MP3_HANDLER, DESC_HANDLER, THUMB_HANDLER, VIDEO_PREPARE, VIDEO_ASSEMBLE, ERROR_HANDLER].join('\n');
+  const allCode = [MP3_HANDLER, DESC_HANDLER, THUMB_HANDLER, VIDEO_PREPARE, VIDEO_ASSEMBLE, SOCIAL_HANDLER, ERROR_HANDLER].join('\n');
+  const execCode = [MP3_HANDLER, DESC_HANDLER, THUMB_HANDLER, VIDEO_PREPARE, VIDEO_ASSEMBLE, SOCIAL_HANDLER, ERROR_HANDLER].join('\n');
   console.log('zoompan in Ken Burns only:', VIDEO_PREPARE.includes('kenBurnsFilters') ? 'PASS (Ken Burns)' : 'MISSING');
   console.log('Imagen support:', VIDEO_PREPARE.includes('generateImagenImage') ? 'PASS' : 'FAIL');
   console.log('motionTier routing:', VIDEO_PREPARE.includes("motionTier === 'static'") ? 'PASS' : 'FAIL');
@@ -1048,6 +1243,8 @@ async function main() {
   console.log('cleanScriptForTTS in VideoPrepare:', VIDEO_PREPARE.includes('cleanScriptForTTS') ? 'PASS' : 'FAIL');
   console.log('generateVEO3Clip in VideoPrepare:', VIDEO_PREPARE.includes('generateVEO3Clip') ? 'PASS' : 'FAIL');
   console.log('South Africa in prompts:', VIDEO_PREPARE.includes('South Afric') ? 'PASS' : 'FAIL');
+  console.log('Social Handler Gemini:', SOCIAL_HANDLER.includes('gemini-2.5-flash') ? 'PASS' : 'FAIL');
+  console.log('Social URL extraction:', SOCIAL_HANDLER.includes('og:title') ? 'PASS' : 'FAIL');
   console.log('CB_SECRET updated:', CONSTANTS.includes('studiostack-n8n-webhook-2026') ? 'PASS' : 'FAIL');
   console.log('-shortest flag:', VIDEO_ASSEMBLE.includes('-shortest') ? 'PASS' : 'FAIL');
   console.log('buildSAPrompt exists:', VIDEO_PREPARE.includes('buildSAPrompt') ? 'PASS' : 'FAIL');

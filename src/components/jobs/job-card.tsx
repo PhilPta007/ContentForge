@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Headphones, Video, FileText, Image, Loader2 } from 'lucide-react';
+import { Headphones, Video, FileText, Image, Share2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Generation, GenerationType, ProgressInfo } from '@/lib/types';
 
@@ -15,6 +15,7 @@ const TYPE_ICONS: Record<GenerationType, typeof Headphones> = {
   video: Video,
   description: FileText,
   thumbnail: Image,
+  social: Share2,
 };
 
 const TYPE_LABELS: Record<GenerationType, string> = {
@@ -22,6 +23,7 @@ const TYPE_LABELS: Record<GenerationType, string> = {
   video: 'Video',
   description: 'Description',
   thumbnail: 'Thumbnail',
+  social: 'Social Posts',
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -130,7 +132,8 @@ export function JobCard({ job, isHighlighted }: JobCardProps) {
     </div>
   );
 
-  if (job.status === 'complete' && job.output_url) {
+  const hasSocialOutput = job.type === 'social' && job.output_metadata?.posts;
+  if (job.status === 'complete' && (job.output_url || hasSocialOutput)) {
     return (
       <Link href={`/app/library/${job.id}`}>
         {content}

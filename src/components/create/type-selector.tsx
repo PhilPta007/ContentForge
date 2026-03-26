@@ -1,6 +1,6 @@
 'use client';
 
-import { Headphones, Video, FileText, Image } from 'lucide-react';
+import { Headphones, Video, FileText, Image, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { GenerationType } from '@/lib/types';
 
@@ -39,13 +39,19 @@ const GENERATION_TYPES: {
     description: '3 thumbnail options',
     icon: Image,
   },
+  {
+    id: 'social',
+    label: 'Social Posts',
+    description: 'Multi-platform posts',
+    icon: Share2,
+  },
 ];
 
 export function TypeSelector({ value, onChange }: TypeSelectorProps) {
   return (
     <div className="space-y-2">
       <label className="text-sm font-medium text-neutral-200">Content Type</label>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {GENERATION_TYPES.map((type) => {
           const Icon = type.icon;
           const isSelected = value === type.id;
