@@ -174,7 +174,7 @@ export function BrandVoiceWizard() {
             <div>
               <h3 className="text-sm font-medium text-white">Brand Questions</h3>
               <p className="mt-1 text-xs text-neutral-400">
-                Define your brand's tone, audience, and personality.
+                Define your brand&apos;s tone, audience, and personality.
               </p>
             </div>
 

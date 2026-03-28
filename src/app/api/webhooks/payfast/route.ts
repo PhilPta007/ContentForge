@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ status: 'ok' }, { status: 200 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('PayFast webhook error:', error);
+    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
   }
 }

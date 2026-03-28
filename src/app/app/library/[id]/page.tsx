@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Headphones, Video, FileText, Image, Share2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -61,7 +61,6 @@ function formatTone(tone: string | null): string {
 
 export default function AssetDetailPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const { user } = useUserStore();
   const [generation, setGeneration] = useState<Generation | null>(null);
   const [isLoading, setIsLoading] = useState(true);

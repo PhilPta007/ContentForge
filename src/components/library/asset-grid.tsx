@@ -17,6 +17,7 @@ const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
   { value: 'video', label: 'Video' },
   { value: 'description', label: 'Description' },
   { value: 'thumbnail', label: 'Thumbnail' },
+  { value: 'social', label: 'Social' },
 ];
 
 function AssetGridSkeleton() {
