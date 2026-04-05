@@ -28,15 +28,25 @@ export interface GenerationPayload {
 }
 
 export async function triggerGeneration(payload: GenerationPayload) {
+  const webhookUrl = process.env.N8N_WEBHOOK_URL;
+  if (!webhookUrl) {
+    throw new Error('N8N_WEBHOOK_URL environment variable is not configured');
+  }
+
+  const webhookSecret = process.env.N8N_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    throw new Error('N8N_WEBHOOK_SECRET environment variable is not configured');
+  }
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const response = await fetch(process.env.N8N_WEBHOOK_URL!, {
+    const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Webhook-Secret': process.env.N8N_WEBHOOK_SECRET!,
+        'X-Webhook-Secret': webhookSecret,
       },
       body: JSON.stringify(payload),
       signal: controller.signal,
@@ -45,11 +55,16 @@ export async function triggerGeneration(payload: GenerationPayload) {
     if (!response.ok) {
       const text = await response.text().catch(() => 'no response body');
       throw new Error(
-        `Failed to trigger generation: ${response.status} ${response.statusText} - ${text}`
+        `n8n trigger failed: ${response.status} ${response.statusText} - ${text}`
       );
     }
 
     return response.json();
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('n8n webhook timed out after 15s');
+    }
+    throw error;
   } finally {
     clearTimeout(timeoutId);
   }

@@ -100,32 +100,41 @@ export async function POST(request: Request) {
 
     const callbackUrl = process.env.N8N_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/n8n`;
 
-    await triggerGeneration({
-      generationId: generation.id,
-      userId: user.id,
-      type: 'video',
-      topic,
-      duration,
-      tone,
-      voiceTier,
-      imageTier,
-      motionTier,
-      sceneCount,
-      callbackUrl,
-      ...(customScript && { customScript }),
-    }).catch(async () => {
+    try {
+      await triggerGeneration({
+        generationId: generation.id,
+        userId: user.id,
+        type: 'video',
+        topic,
+        duration,
+        tone,
+        voiceTier,
+        imageTier,
+        motionTier,
+        sceneCount,
+        callbackUrl,
+        ...(customScript && { customScript }),
+      });
+    } catch (triggerError) {
+      const errorMsg = triggerError instanceof Error ? triggerError.message : String(triggerError);
+      console.error(`[generate/video] Trigger failed for ${generation.id}:`, errorMsg);
       await admin
         .from('generations')
-        .update({ status: 'failed', error_message: 'Failed to trigger n8n workflow' })
+        .update({ status: 'failed', error_message: `Trigger failed: ${errorMsg}` })
         .eq('id', generation.id);
-      await addCredits(user.id, creditsNeeded, 'refund', `Refund: Video generation failed`, generation.id);
-    });
+      await addCredits(user.id, creditsNeeded, 'refund', `Refund: Video trigger failed`, generation.id);
+      return NextResponse.json(
+        { error: 'Failed to start video generation', detail: errorMsg, generationId: generation.id },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({
       generationId: generation.id,
       creditsUsed: creditsNeeded,
     });
-  } catch {
+  } catch (error) {
+    console.error('[generate/video] Unhandled error:', error instanceof Error ? error.message : error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

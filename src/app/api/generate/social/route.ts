@@ -99,38 +99,44 @@ export async function POST(request: Request) {
       process.env.N8N_CALLBACK_URL ||
       `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/n8n`;
 
-    await triggerGeneration({
-      generationId: generation.id,
-      userId: user.id,
-      type: 'social',
-      topic,
-      inputType,
-      sourceUrl: inputType === 'url' ? url : undefined,
-      sourceText: inputType === 'text' ? text : undefined,
-      platforms,
-      callbackUrl,
-    }).catch(async () => {
+    try {
+      await triggerGeneration({
+        generationId: generation.id,
+        userId: user.id,
+        type: 'social',
+        topic,
+        inputType,
+        sourceUrl: inputType === 'url' ? url : undefined,
+        sourceText: inputType === 'text' ? text : undefined,
+        platforms,
+        callbackUrl,
+      });
+    } catch (triggerError) {
+      const errorMsg = triggerError instanceof Error ? triggerError.message : String(triggerError);
+      console.error(`[generate/social] Trigger failed for ${generation.id}:`, errorMsg);
       await admin
         .from('generations')
-        .update({
-          status: 'failed',
-          error_message: 'Failed to trigger n8n workflow',
-        })
+        .update({ status: 'failed', error_message: `Trigger failed: ${errorMsg}` })
         .eq('id', generation.id);
       await addCredits(
         user.id,
         creditsNeeded,
         'refund',
-        'Refund: Social posts generation failed',
+        'Refund: Social trigger failed',
         generation.id
       );
-    });
+      return NextResponse.json(
+        { error: 'Failed to start social generation', detail: errorMsg, generationId: generation.id },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({
       generationId: generation.id,
       creditsUsed: creditsNeeded,
     });
-  } catch {
+  } catch (error) {
+    console.error('[generate/social] Unhandled error:', error instanceof Error ? error.message : error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -77,27 +77,36 @@ export async function POST(request: Request) {
 
     const callbackUrl = process.env.N8N_CALLBACK_URL || `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/n8n`;
 
-    await triggerGeneration({
-      generationId: generation.id,
-      userId: user.id,
-      type: 'thumbnail',
-      topic,
-      imageTier,
-      callbackUrl,
-      ...(style && { style }),
-    }).catch(async () => {
+    try {
+      await triggerGeneration({
+        generationId: generation.id,
+        userId: user.id,
+        type: 'thumbnail',
+        topic,
+        imageTier,
+        callbackUrl,
+        ...(style && { style }),
+      });
+    } catch (triggerError) {
+      const errorMsg = triggerError instanceof Error ? triggerError.message : String(triggerError);
+      console.error(`[generate/thumbnail] Trigger failed for ${generation.id}:`, errorMsg);
       await admin
         .from('generations')
-        .update({ status: 'failed', error_message: 'Failed to trigger n8n workflow' })
+        .update({ status: 'failed', error_message: `Trigger failed: ${errorMsg}` })
         .eq('id', generation.id);
-      await addCredits(user.id, creditsNeeded, 'refund', `Refund: Thumbnail generation failed`, generation.id);
-    });
+      await addCredits(user.id, creditsNeeded, 'refund', `Refund: Thumbnail trigger failed`, generation.id);
+      return NextResponse.json(
+        { error: 'Failed to start thumbnail generation', detail: errorMsg, generationId: generation.id },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({
       generationId: generation.id,
       creditsUsed: creditsNeeded,
     });
-  } catch {
+  } catch (error) {
+    console.error('[generate/thumbnail] Unhandled error:', error instanceof Error ? error.message : error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
